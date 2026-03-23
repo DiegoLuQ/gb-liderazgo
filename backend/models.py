@@ -1,0 +1,197 @@
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Date, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from database import Base
+import enum
+
+
+class Rol(Base):
+    __tablename__ = "auth_roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(50), unique=True, nullable=False)
+
+    usuarios = relationship("Usuario", back_populates="rol")
+
+
+class Usuario(Base):
+    __tablename__ = "auth_usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    rol_id = Column(Integer, ForeignKey("auth_roles.id"), nullable=False, default=3)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    rol = relationship("Rol", back_populates="usuarios")
+    evaluaciones = relationship("Evaluacion", foreign_keys="[Evaluacion.usuario_id]", back_populates="usuario")
+    colegios_creados = relationship("Colegio", back_populates="creado_por")
+    docentes_creados = relationship("Docente", back_populates="creado_por")
+    cursos_creados = relationship("Curso", back_populates="creado_por")
+    asignaturas_creadas = relationship("Asignatura", back_populates="creado_por")
+
+
+class Colegio(Base):
+    __tablename__ = "cat_colegios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200), nullable=False)
+    direccion = Column(String(255))
+    created_by = Column(Integer, ForeignKey("auth_usuarios.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    creado_por = relationship("Usuario", back_populates="colegios_creados")
+    docentes = relationship("Docente", back_populates="colegio")
+
+
+class Nivel(Base):
+    __tablename__ = "cat_niveles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    orden = Column(Integer, default=0)
+
+    cursos = relationship("Curso", back_populates="nivel")
+
+
+class Curso(Base):
+    __tablename__ = "cat_cursos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nivel_id = Column(Integer, ForeignKey("cat_niveles.id"), nullable=False)
+    letra = Column(String(5), nullable=False)
+    created_by = Column(Integer, ForeignKey("auth_usuarios.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('nivel_id', 'letra', name='unique_nivel_letra'),
+    )
+
+    nivel = relationship("Nivel", back_populates="cursos")
+    creado_por = relationship("Usuario", back_populates="cursos_creados")
+    evaluaciones = relationship("Evaluacion", back_populates="curso")
+
+
+class Asignatura(Base):
+    __tablename__ = "cat_asignaturas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    created_by = Column(Integer, ForeignKey("auth_usuarios.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    creado_por = relationship("Usuario", back_populates="asignaturas_creadas")
+    evaluaciones = relationship("Evaluacion", back_populates="asignatura")
+
+
+class Docente(Base):
+    __tablename__ = "cat_docentes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    rut = Column(String(20), nullable=False)
+    email = Column(String(100))
+    colegio_id = Column(Integer, ForeignKey("cat_colegios.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("auth_usuarios.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('rut', 'colegio_id', name='unique_rut_colegio'),
+    )
+
+    colegio = relationship("Colegio", back_populates="docentes")
+    creado_por = relationship("Usuario", back_populates="docentes_creados")
+    evaluaciones = relationship("Evaluacion", back_populates="docente")
+
+
+
+class Dimension(Base):
+    __tablename__ = "eval_dimensiones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(Text)
+    orden = Column(Integer, default=0)
+
+    subdimensiones = relationship("Subdimension", back_populates="dimension")
+
+
+class Subdimension(Base):
+    __tablename__ = "eval_subdimensiones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dimension_id = Column(Integer, ForeignKey("eval_dimensiones.id"), nullable=False)
+    nombre = Column(String(200), nullable=False)
+    descripcion = Column(Text)
+    orden = Column(Integer, default=0)
+
+    dimension = relationship("Dimension", back_populates="subdimensiones")
+    respuestas = relationship("EvaluacionRespuesta", back_populates="subdimension")
+
+
+class Evaluacion(Base):
+    __tablename__ = "eval_evaluaciones"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("auth_usuarios.id"), nullable=False)
+    docente_id = Column(Integer, ForeignKey("cat_docentes.id"), nullable=False)
+    curso_id = Column(Integer, ForeignKey("cat_cursos.id"), nullable=False)
+    asignatura_id = Column(Integer, ForeignKey("cat_asignaturas.id"), nullable=False)
+    observador_id = Column(Integer, ForeignKey("auth_usuarios.id"), nullable=True)
+    fecha = Column(Date, nullable=False)
+    duracion = Column(String(50))
+    func_grupo = Column(String(20))
+    promedio = Column(Float)
+    promedio_dim1 = Column(Float)
+    promedio_dim2 = Column(Float)
+    promedio_dim3 = Column(Float)
+    promedio_dim4 = Column(Float)
+    promedio_dim5 = Column(Float)
+    orientacion = Column(String(50))
+    nivel_apoyo = Column(String(50))
+    comentarios = Column(Text)
+    fecha_guardado = Column(DateTime(timezone=True), server_default=func.now())
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id], back_populates="evaluaciones")
+    docente = relationship("Docente", back_populates="evaluaciones")
+    curso = relationship("Curso", back_populates="evaluaciones")
+    asignatura = relationship("Asignatura", back_populates="evaluaciones")
+    observador = relationship("Usuario", foreign_keys=[observador_id])
+    respuestas = relationship("EvaluacionRespuesta", back_populates="evaluacion", cascade="all, delete-orphan")
+    apoyos = relationship("EvaluacionApoyo", back_populates="evaluacion", cascade="all, delete-orphan")
+    fortalezas_aspectos = relationship("FortalezaAspecto", back_populates="evaluacion", cascade="all, delete-orphan")
+
+
+class EvaluacionRespuesta(Base):
+    __tablename__ = "eval_respuestas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    evaluacion_id = Column(Integer, ForeignKey("eval_evaluaciones.id"), nullable=False)
+    subdimension_id = Column(Integer, ForeignKey("eval_subdimensiones.id"), nullable=False)
+    valor = Column(Integer, nullable=False)
+
+    evaluacion = relationship("Evaluacion", back_populates="respuestas")
+    subdimension = relationship("Subdimension", back_populates="respuestas")
+
+
+class EvaluacionApoyo(Base):
+    __tablename__ = "eval_apoyos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    evaluacion_id = Column(Integer, ForeignKey("eval_evaluaciones.id"), nullable=False)
+    apoyo = Column(String(100), nullable=False)
+
+    evaluacion = relationship("Evaluacion", back_populates="apoyos")
+
+
+class FortalezaAspecto(Base):
+    __tablename__ = "eval_fortalezas_aspectos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    evaluacion_id = Column(Integer, ForeignKey("eval_evaluaciones.id"), nullable=False)
+    tipo = Column(String(20), nullable=False)
+    contenido = Column(Text, nullable=False)
+
+    evaluacion = relationship("Evaluacion", back_populates="fortalezas_aspectos")

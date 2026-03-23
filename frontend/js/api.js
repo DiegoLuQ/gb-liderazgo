@@ -1,0 +1,241 @@
+const API_URL = window.location.port === '8080' || window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' 
+    ? '/api' 
+    : 'http://localhost:8001';
+
+export const api = {
+    getToken: () => localStorage.getItem('token'),
+    getUsername: () => localStorage.getItem('username'),
+    getUserRole: () => localStorage.getItem('userRole') || '3',
+
+    headers: () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${api.getToken()}`
+    }),
+
+    checkAuth: () => {
+        if (!api.getToken()) {
+            window.location.href = 'login.html';
+            return false;
+        }
+        return true;
+    },
+
+    requireRole: (roles) => {
+        if (!roles.includes(api.getUserRole())) {
+            alert('No tienes permisos para acceder a esta sección');
+            window.location.href = 'dashboard.html';
+            return false;
+        }
+        return true;
+    },
+
+    async request(method, endpoint, data = null) {
+        const options = {
+            method,
+            headers: api.headers()
+        };
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+
+        const response = await fetch(`${API_URL}${endpoint}`, options);
+        
+        if (response.status === 401) {
+            localStorage.clear();
+            window.location.href = 'login.html';
+            throw new Error('Sesión expirada');
+        }
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Error en el servidor' }));
+            let message = error.detail || 'Error en la petición';
+            if (Array.isArray(message)) {
+                message = message.map(err => `${err.msg} (${err.loc.join(' > ')})`).join(', ');
+            } else if (typeof message === 'object') {
+                message = JSON.stringify(message);
+            }
+            throw new Error(message);
+        }
+
+        if (response.headers.get('content-type')?.includes('application/vnd.openxmlformats')) {
+            return response.blob();
+        }
+
+        return response.json();
+    },
+
+    async get(endpoint) {
+        return api.request('GET', endpoint);
+    },
+
+    async post(endpoint, data) {
+        return api.request('POST', endpoint, data);
+    },
+
+    async put(endpoint, data) {
+        return api.request('PUT', endpoint, data);
+    },
+
+    async delete(endpoint) {
+        return api.request('DELETE', endpoint);
+    },
+
+    auth: {
+        async login(username, password) {
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({ detail: 'Error' }));
+                throw new Error(error.detail || 'Error al iniciar sesión');
+            }
+
+            return response.json();
+        },
+
+        async register(username, email, password) {
+            return api.post('/auth/register', { username, email, password });
+        },
+
+        async getMe() {
+            return api.get('/auth/me');
+        },
+
+        async getUsers() {
+            return api.get('/auth/users');
+        },
+
+        async updateUser(id, data) {
+            return api.put(`/auth/users/${id}`, data);
+        },
+        async deleteUser(id) {
+            return api.delete(`/auth/users/${id}`);
+        },
+        async listRoles() {
+            return api.get('/auth/roles');
+        },
+        logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            localStorage.removeItem('userRole');
+        }
+    },
+
+    colegios: {
+        getAll() { return api.get('/colegios/'); },
+        get(id) { return api.get(`/colegios/${id}`); },
+        create(data) { return api.post('/colegios/', data); },
+        update(id, data) { return api.put(`/colegios/${id}`, data); },
+        delete(id) { return api.delete(`/colegios/${id}`); }
+    },
+
+    niveles: {
+        getAll() { return api.get('/niveles/'); }
+    },
+
+    cursos: {
+        getAll() { return api.get('/cursos/'); },
+        create(data) { return api.post('/cursos/', data); },
+        delete(id) { return api.delete(`/cursos/${id}`); }
+    },
+
+    asignaturas: {
+        getAll() { return api.get('/asignaturas/'); },
+        get(id) { return api.get(`/asignaturas/${id}`); },
+        create(data) { return api.post('/asignaturas/', data); },
+        update(id, data) { return api.put(`/asignaturas/${id}`, data); },
+        delete(id) { return api.delete(`/asignaturas/${id}`); }
+    },
+
+    docentes: {
+        getAll(colegioId = null) {
+            const endpoint = colegioId ? `/docentes/?colegio_id=${colegioId}` : '/docentes/';
+            return api.get(endpoint);
+        },
+        get(id) { return api.get(`/docentes/${id}`); },
+        create(data) { return api.post('/docentes/', data); },
+        update(id, data) { return api.put(`/docentes/${id}`, data); },
+        delete(id) { return api.delete(`/docentes/${id}`); },
+        exportExcel() {
+            return fetch(`${API_URL}/docentes/export/excel`, {
+                headers: { 'Authorization': `Bearer ${api.getToken()}` }
+            });
+        },
+        downloadTemplate() {
+            return fetch(`${API_URL}/docentes/export/template`, {
+                headers: { 'Authorization': `Bearer ${api.getToken()}` }
+            });
+        },
+        importExcel(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            return fetch(`${API_URL}/docentes/import/excel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${api.getToken()}` },
+                body: formData
+            }).then(res => res.json());
+        }
+    },
+
+
+    dimensiones: {
+        getAll() { return api.get('/dimensiones/'); },
+        getSubdimensiones() { return api.get('/dimensiones/subdimensiones'); },
+        create(data) { return api.post('/dimensiones/', data); },
+        update(id, data) { return api.put(`/dimensiones/${id}`, data); },
+        delete(id) { return api.delete(`/dimensiones/${id}`); },
+        reorder(ids) { return api.put('/dimensiones/reorder', { ids }); },
+        createIndicador(dimensionId, data) { return api.post(`/dimensiones/${dimensionId}/subdimensiones/`, data); },
+        updateIndicador(id, data) { return api.put(`/dimensiones/subdimensiones/${id}`, data); },
+        deleteIndicador(id) { return api.delete(`/dimensiones/subdimensiones/${id}`); },
+        reorderIndicadores(ids) { return api.put('/dimensiones/subdimensiones/reorder', { ids }); },
+        exportExcel() {
+            return fetch(`${API_URL}/dimensiones/export/excel`, {
+                headers: { 'Authorization': `Bearer ${api.getToken()}` }
+            });
+        }
+    },
+
+    evaluaciones: {
+        getAll() { return api.get('/evaluaciones/'); },
+        get(id) { return api.get(`/evaluaciones/${id}`); },
+        getStats: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return api.request('GET', `/evaluaciones/stats?${query}`);
+        },
+        getTalentMap: (params = {}) => {
+            const query = new URLSearchParams(params).toString();
+            return api.request('GET', `/evaluaciones/talent-map?${query}`);
+        },
+        getDashboardStats(colegioId = null) { 
+            const endpoint = colegioId ? `/evaluaciones/stats/dashboard?colegio_id=${colegioId}` : '/evaluaciones/stats/dashboard';
+            return api.get(endpoint); 
+        },
+        getById: (id) => api.request('GET', `/evaluaciones/${id}`),
+        create(data) { return api.post('/evaluaciones/', data); },
+        delete(id) { return api.delete(`/evaluaciones/${id}`); },
+        exportExcel() {
+            return fetch(`${API_URL}/evaluaciones/export/excel`, {
+                headers: { 'Authorization': `Bearer ${api.getToken()}` }
+            });
+        }
+    },
+    config: {
+        backup: {
+            sql() {
+                return fetch(`${API_URL}/config/backup/sql`, {
+                    headers: { 'Authorization': `Bearer ${api.getToken()}` }
+                });
+            },
+            email() {
+                return api.post('/config/backup/email');
+            }
+        }
+    }
+};

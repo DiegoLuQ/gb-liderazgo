@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pauta de Observación - Liderazgo Docente</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header-bar">
+            <div class="user-info">
+                <span>Usuario: <strong id="userDisplay"></strong></span>
+            </div>
+            <button type="button" class="btn btn-logout" id="btnLogout">Cerrar Sesión</button>
+        </div>
+
+        <div class="header-titles">
+            <h1>Pauta de Observación</h1>
+            <h2>Liderazgo del Docente en el Aula</h2>
+            <h3>Área de Desarrollo Organizacional</h3>
+        </div>
+
+        <div class="section-container">
+            <h4>I. Objetivo</h4>
+            <p>Observar indicadores de liderazgo del docente en el aula, considerando aspectos de comunicación,
+                presencia, coherencia, organización y conducción del grupo.</p>
+            <p>Esta pauta <u>no evalúa aspectos pedagógicos</u>, sino comportamientos de liderazgo del docente en la
+                conducción del grupo.</p>
+            <p><strong>Escala de evaluación</strong><br>
+                1 = Bajo<br>
+                2 = En desarrollo<br>
+                3 = Adecuado<br>
+                4 = Alto<br>
+                5 = Muy alto</p>
+        </div>
+
+        <form id="evaluationForm">
+            <h4>II. Antecedentes de la observación de aula</h4>
+            <div class="grid-2">
+                <div class="form-group"><label>Docente observado/a</label><input type="text" id="docente" required>
+                </div>
+                <div class="form-group"><label>Curso</label><input type="text" id="curso" required></div>
+                <div class="form-group"><label>Asignatura</label><input type="text" id="asignatura" required></div>
+                <div class="form-group"><label>Fecha de observación</label><input type="date" id="fecha" required></div>
+                <div class="form-group"><label>Observador/a</label><input type="text" id="observador" required></div>
+                <div class="form-group"><label>Duración de la observación</label><input type="text" id="duracion"></div>
+            </div>
+
+            <h4>III. Evaluación de Indicadores de Liderazgo Docente</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 75%; text-align: left;">Indicador</th>
+                        <th style="width: 25%; text-align: center;">1 &nbsp; 2 &nbsp; 3 &nbsp; 4 &nbsp; 5</th>
+                    </tr>
+                </thead>
+                <tbody id="rubricBody">
+                </tbody>
+            </table>
+
+            <h4>IV. Evaluación Global del Liderazgo Observado</h4>
+            <div class="result-box">
+                Promedio liderazgo observado: <strong><span id="promedioDisplay">_____</span></strong>
+            </div>
+            <p>Interpretación</p>
+            <table class="small-table">
+                <tr>
+                    <th>Promedio</th>
+                    <th>Nivel de liderazgo</th>
+                </tr>
+                <tr>
+                    <td>4 – 5</td>
+                    <td>Liderazgo consolidado</td>
+                </tr>
+                <tr>
+                    <td>3 – 4</td>
+                    <td>Liderazgo adecuado</td>
+                </tr>
+                <tr>
+                    <td>2 – 3</td>
+                    <td>Liderazgo en desarrollo</td>
+                </tr>
+                <tr>
+                    <td>1 – 2</td>
+                    <td>Liderazgo bajo</td>
+                </tr>
+            </table>
+
+            <h4>V. Funcionamiento del Grupo Durante la Clase</h4>
+            <div class="radio-vertical">
+                <label><input type="radio" name="funcGrupo" value="Bajo" required> Bajo</label>
+                <label><input type="radio" name="funcGrupo" value="Regular"> Regular</label>
+                <label><input type="radio" name="funcGrupo" value="Adecuado"> Adecuado</label>
+                <label><input type="radio" name="funcGrupo" value="Bueno"> Bueno</label>
+                <label><input type="radio" name="funcGrupo" value="Muy bueno"> Muy bueno</label>
+            </div>
+
+            <h4>VI. Observaciones</h4>
+            <div class="form-group">
+                <label>Fortalezas observadas</label>
+                <textarea id="fortalezas" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Aspectos a fortalecer</label>
+                <textarea id="aspectos" rows="4"></textarea>
+            </div>
+
+            <h4>VII. Orientación para el Desarrollo</h4>
+            <div class="radio-vertical">
+                <label><input type="radio" name="orientacion" value="Docente referente" required> Docente
+                    referente</label>
+                <label><input type="radio" name="orientacion" value="Buen desempeño"> Buen desempeño</label>
+                <label><input type="radio" name="orientacion" value="En desarrollo"> En desarrollo</label>
+                <label><input type="radio" name="orientacion" value="Requiere acompañamiento"> Requiere
+                    acompañamiento</label>
+            </div>
+
+            <h4>VIII. Orientación de Desarrollo Docente</h4>
+            <p>De acuerdo con la observación realizada, indique el nivel de apoyo o acompañamiento que podría requerir
+                el docente.</p>
+            <div class="radio-vertical">
+                <label class="desc-label">
+                    <input type="radio" name="nivelApoyo" value="No requiere" required> <strong>No requiere
+                        acompañamiento</strong><br>
+                    <span class="sub-desc">El docente demuestra un liderazgo consolidado y puede actuar como referente
+                        para otros docentes.</span>
+                </label>
+                <label class="desc-label">
+                    <input type="radio" name="nivelApoyo" value="Requiere acompañamiento"> <strong>Requiere
+                        acompañamiento</strong><br>
+                    <span class="sub-desc">El docente presenta áreas de liderazgo en desarrollo que pueden fortalecerse
+                        mediante retroalimentación o coaching.</span>
+                </label>
+                <label class="desc-label">
+                    <input type="radio" name="nivelApoyo" value="Prioritario"> <strong>Requiere acompañamiento
+                        prioritario</strong><br>
+                    <span class="sub-desc">El docente requiere apoyo sistemático para fortalecer su liderazgo y
+                        conducción del grupo.</span>
+                </label>
+            </div>
+
+            <h4>IX. Tipo de Apoyo Sugerido</h4>
+            <div class="radio-vertical">
+                <label><input type="checkbox" class="tipoApoyo" value="Retroalimentación"> Retroalimentación posterior a
+                    la observación</label>
+                <label><input type="checkbox" class="tipoApoyo" value="Coaching"> Sesión de coaching docente</label>
+                <label><input type="checkbox" class="tipoApoyo" value="Seguimiento"> Observación de seguimiento</label>
+                <label><input type="checkbox" class="tipoApoyo" value="Acompañamiento"> Acompañamiento formativo</label>
+                <label><input type="checkbox" class="tipoApoyo" value="No requiere"> No requiere apoyo en esta
+                    etapa</label>
+            </div>
+
+            <h4>X. Comentarios para el Desarrollo</h4>
+            <div class="form-group">
+                <textarea id="comentarios" rows="4"></textarea>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn btn-primary">💾 Guardar Evaluación</button>
+                <button type="button" class="btn btn-secondary" id="btnVerRegistros">📁 Ver Registros</button>
+                <button type="button" class="btn btn-export" id="btnExportarExcel">📊 Exportar Excel</button>
+            </div>
+        </form>
+
+        <div id="databaseView" style="display:none;">
+            <h4>Base de Datos (Registros)</h4>
+            <div id="recordsList"></div>
+            <button type="button" class="btn btn-secondary" id="btnOcultarRegistros">Ocultar Registros</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
