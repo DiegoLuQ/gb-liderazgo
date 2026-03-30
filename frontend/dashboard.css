@@ -2816,3 +2816,32 @@ body {
         padding: 12px 20px;
     }
 }
+
+/* Mejora de visibilidad de selecciones (Radio y Checkbox) en PDF */
+.exporting-pdf input[type="radio"]:checked,
+.exporting-pdf input[type="checkbox"]:checked {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border: 1.5px solid #000 !important;
+    background: #fff !important;
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 14px !important;
+    height: 14px !important;
+    box-sizing: border-box !important;
+}
+
+.exporting-pdf input[type="radio"]:checked::after,
+.exporting-pdf input[type="checkbox"]:checked::after {
+    content: "✓" !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    color: #000 !important;
+    line-height: 1 !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+}

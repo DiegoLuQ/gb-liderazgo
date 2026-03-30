@@ -250,6 +250,8 @@ class EvaluacionUpdate(BaseModel):
     sintesis_retro: Optional[str] = None
     acuerdos_mejora: Optional[str] = None
     comentarios: Optional[str] = None
+    fecha_retro: Optional[date] = None
+    modalidad_retro: Optional[str] = None
     fortalezas_aspectos: Optional[List[FortalezaAspectoInput]] = None
 
 

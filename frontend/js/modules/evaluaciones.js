@@ -253,8 +253,10 @@ export async function verFormularioSoloLectura(id) {
         
         document.querySelectorAll('#evaluacionForm input, #evaluacionForm select, #evaluacionForm textarea').forEach(el => {
             // Campos permitidos en borrador
-            const idPermitido = ['sintesisRetro', 'acuerdosMejora', 'comentarios', 'fortalezas', 'aspectos'].includes(el.id);
-            if (esBorrador && idPermitido) {
+            const idPermitido = ['sintesisRetro', 'acuerdosMejora', 'comentarios', 'fortalezas', 'aspectos', 'fechaRetroalimentacion'].includes(el.id);
+            const namePermitido = el.name === 'modalidadRetro';
+            
+            if (esBorrador && (idPermitido || namePermitido)) {
                 el.disabled = false;
             } else {
                 el.disabled = true;
@@ -273,9 +275,9 @@ export async function verFormularioSoloLectura(id) {
         const btnGuardar = document.getElementById('btnGuardarEvaluacion');
         if (btnGuardar) btnGuardar.style.display = 'none';
         // Configurar botones de acción para BORRADOR
-        const btnGuardarBorrador = document.getElementById('btnGuardarBorrador');
-        const btnFirmarBorrador = document.getElementById('btnFirmarBorrador');
-        const btnAsignarFirma = document.getElementById('btnAsignarFirma');
+        const btnGuardarBorrador = document.querySelector('#pageNuevaEvaluacion #btnGuardarBorrador');
+        const btnFirmarBorrador = document.querySelector('#pageNuevaEvaluacion #btnFirmarBorrador');
+        const btnAsignarFirma = document.querySelector('#pageNuevaEvaluacion #btnAsignarFirma');
 
         const esListoFirma = e.estado === 'LISTO_PARA_FIRMA';
         
@@ -650,6 +652,25 @@ export async function guardarCambiosBorrador(evalIdArg) {
 
         const cVal = findVisibleVal('comentariosBorrador', 'comentarios');
         if (cVal !== null) updateData.comentarios = cVal;
+
+        // Captura directa de Fecha de Retroalimentación (Cualquiera que tenga valor)
+        const fechaVal = document.getElementById('fechaRetroBorrador')?.value || document.getElementById('fechaRetroalimentacion')?.value;
+        if (fechaVal) {
+            updateData.fecha_retro = fechaVal;
+        }
+
+        // Captura de Modalidad
+        const modBorrador = document.getElementById('modalidadRetroBorrador')?.value;
+        if (modBorrador) {
+            updateData.modalidad_retro = modBorrador;
+        } else {
+            const checks = document.querySelectorAll('input[name="modalidadRetro"]:checked');
+            if (checks.length > 0) {
+                updateData.modalidad_retro = Array.from(checks).map(cb => cb.value).join(', ');
+            }
+        }
+
+        console.log('DEBUG: Preparando guardado de borrador...', updateData);
 
         const fEl = document.getElementById('fortalezasBorrador') || document.getElementById('fortalezas');
         const aEl = document.getElementById('aspectosBorrador') || document.getElementById('aspectos');
@@ -1160,11 +1181,17 @@ export async function mostrarResumen(evaluacion) {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                 <div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #edf2f7;">
                     <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Fecha de Retroalimentación:</strong>
-                    <p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.fecha_retro || 'No programada'}</p>
+                    ${evaluacion.estado === 'BORRADOR' ?
+                        `<input type="date" id="fechaRetroBorrador" value="${evaluacion.fecha_retro || ''}" style="width: 100%; margin-top: 8px; border: 1px solid #ced4da; border-radius: 8px; padding: 8px; font-size: 0.95rem; color: #1e293b; background: #fffbe6;">` :
+                        `<p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.fecha_retro || 'No programada'}</p>`
+                    }
                 </div>
                 <div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #edf2f7;">
                     <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Modalidad:</strong>
-                    <p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.modalidad_retro || '-'}</p>
+                    ${evaluacion.estado === 'BORRADOR' ?
+                        `<input type="text" id="modalidadRetroBorrador" value="${evaluacion.modalidad_retro || ''}" style="width: 100%; margin-top: 8px; border: 1px solid #ced4da; border-radius: 8px; padding: 8px; font-size: 0.95rem; color: #1e293b; background: #fffbe6;" placeholder="Ej: Conversación individual...">` :
+                        `<p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.modalidad_retro || '-'}</p>`
+                    }
                 </div>
             </div>
             <div style="margin-bottom: 20px;">

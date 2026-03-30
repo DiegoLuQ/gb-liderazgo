@@ -722,6 +722,10 @@ def actualizar_evaluacion(
         evaluacion.acuerdos_mejora = eval_data.acuerdos_mejora
     if eval_data.comentarios is not None:
         evaluacion.comentarios = eval_data.comentarios
+    if eval_data.fecha_retro is not None:
+        evaluacion.fecha_retro = eval_data.fecha_retro
+    if eval_data.modalidad_retro is not None:
+        evaluacion.modalidad_retro = eval_data.modalidad_retro
 
     # Actualizar fortalezas y aspectos (reemplazo completo)
     if eval_data.fortalezas_aspectos is not None:
