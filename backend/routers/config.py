@@ -6,7 +6,7 @@ import io
 from datetime import datetime
 from database import get_db, engine
 from auth import get_current_user, require_admin
-from models import Base
+from models import Base, EmailRecipient
 
 from utils.db_utils import generate_sql_dump
 from utils.mailer import send_email_with_attachment
@@ -47,3 +47,29 @@ async def send_backup_email(
     )
     
     return {"message": "El respaldo se está procesando y será enviado a su correo en unos instantes."}
+
+# CRUD para destinatarios de correo adicionales
+@router.get("/email-recipients")
+def get_email_recipients(db: Session = Depends(get_db), admin_user = Depends(require_admin)):
+    return db.query(EmailRecipient).all()
+
+@router.post("/email-recipients")
+def create_email_recipient(data: dict, db: Session = Depends(get_db), admin_user = Depends(require_admin)):
+    new_recipient = EmailRecipient(
+        email=data.get("email"),
+        nombre=data.get("nombre"),
+        activo=data.get("activo", True)
+    )
+    db.add(new_recipient)
+    db.commit()
+    db.refresh(new_recipient)
+    return new_recipient
+
+@router.delete("/email-recipients/{id}")
+def delete_email_recipient(id: int, db: Session = Depends(get_db), admin_user = Depends(require_admin)):
+    recipient = db.query(EmailRecipient).filter(EmailRecipient.id == id).first()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Destinatario no encontrado")
+    db.delete(recipient)
+    db.commit()
+    return {"message": "Destinatario eliminado"}

@@ -19,7 +19,8 @@ export const state = {
     slimConfig: null,
     
     // PDF related
-    _pdfBlobUrl: null
+    _pdfBlobUrl: null,
+    currentEvalId: null
 };
 
 // Functions to update state objects while keeping references (if needed)

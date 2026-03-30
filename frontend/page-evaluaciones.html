@@ -1,0 +1,49 @@
+        <!-- Página Evaluaciones -->
+        <div id="pageEvaluaciones" class="page">
+            <div class="page-header">
+                <h1>Acompañamientos</h1>
+                <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">Nuevo Acompañamiento</button>
+            </div>
+
+            <!-- Barra de Filtros -->
+            <div class="filters-bar"
+                style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:#fff; padding:14px 20px; border-radius:10px; margin-bottom:20px; box-shadow:var(--shadow);">
+                <select id="filterColegioEval" class="form-select" style="min-width:180px;"
+                    onchange="loadEvaluaciones()">
+                    <option value="">Todos los Colegios</option>
+                </select>
+                <input type="text" id="filterDocenteEval" class="form-select" style="min-width:180px;"
+                    placeholder="🔍 Buscar docente..." oninput="loadEvaluaciones()">
+                <input type="date" id="filterFechaDesdeEval" class="form-select" style="min-width:150px;"
+                    onchange="loadEvaluaciones()" title="Desde">
+                <input type="date" id="filterFechaHastaEval" class="form-select" style="min-width:150px;"
+                    onchange="loadEvaluaciones()" title="Hasta">
+                <button class="btn btn-secondary" onclick="limpiarFiltrosEval()" style="white-space:nowrap;">✖ Limpiar
+                    filtros</button>
+            </div>
+            <div class="table-container">
+                <table class="data-table" id="evaluacionesTable">
+                    <thead>
+                        <tr id="evaluacionesHeader">
+                            <th onclick="window.app.sortData('id')" style="cursor:pointer;" title="Ordenar por Código">Cod ↕️</th>
+                            <th onclick="window.app.sortData('fecha')" style="cursor:pointer;"
+                                title="Ordenar por Fecha">Fecha ↕️</th>
+                            <th onclick="window.app.sortData('docente_nombre')" style="cursor:pointer;"
+                                title="Ordenar por Docente">Docente ↕️</th>
+                            <th onclick="window.app.sortData('colegio_nombre')" style="cursor:pointer;"
+                                title="Ordenar por Colegio">Colegio ↕️</th>
+                            <th onclick="window.app.sortData('promedio')" style="cursor:pointer;"
+                                title="Ordenar por Promedio">Promedio ↕️</th>
+                            <th onclick="window.app.sortData('estado')" style="cursor:pointer;"
+                                title="Ordenar por Estado">Estado ↕️</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="evaluacionesBody">
+                        <tr>
+                            <td colspan="7" class="text-center">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>

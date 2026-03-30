@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal
-from routers import auth, colegios, niveles, cursos, asignaturas, docentes, dimensiones, evaluaciones, config
+from routers import auth, colegios, niveles, cursos, asignaturas, docentes, dimensiones, evaluaciones, config, totp
 from apscheduler.schedulers.background import BackgroundScheduler
 from utils.db_utils import generate_sql_dump
 from utils.mailer import send_email_with_attachment
+from utils.websocket_manager import manager
 from datetime import datetime
 import contextlib
 
@@ -41,12 +42,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-        "http://127.0.0.1:8001",
-        "http://localhost:8001"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,6 +57,18 @@ app.include_router(docentes.router)
 app.include_router(dimensiones.router)
 app.include_router(evaluaciones.router)
 app.include_router(config.router)
+app.include_router(totp.router)
+
+
+@app.websocket("/ws/evaluacion/{eval_id}")
+async def websocket_endpoint(websocket: WebSocket, eval_id: int):
+    await manager.connect(eval_id, websocket)
+    try:
+        while True:
+            # Mantener conexión abierta
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(eval_id, websocket)
 
 
 @app.get("/")

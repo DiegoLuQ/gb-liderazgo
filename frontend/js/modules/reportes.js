@@ -19,6 +19,16 @@ export async function initReportes() {
 
 async function loadFiltrosReportes() {
     try {
+        const selAnio = document.getElementById('repFilterAnio');
+        if (selAnio && selAnio.options.length === 0) {
+            const currentYear = new Date().getFullYear();
+            let options = '';
+            for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+                options += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+            }
+            selAnio.innerHTML = options;
+        }
+
         const colegios = await api.colegios.getAll();
         const asignaturas = await api.asignaturas.getAll();
         
@@ -44,11 +54,13 @@ export async function actualizarReportes() {
     const asigId = document.getElementById('repFilterAsignatura').value;
     const from = document.getElementById('repFechaInicio').value;
     const to = document.getElementById('repFechaFin').value;
+    const anio = document.getElementById('repFilterAnio').value;
 
     if (colId) params.colegio_id = colId;
     if (asigId) params.asignatura_id = asigId;
     if (from) params.fecha_inicio = from;
     if (to) params.fecha_fin = to;
+    if (anio) params.anio = anio;
 
     try {
         mostrarLoading(true, 'Generando informes de acompañamiento...');
@@ -69,13 +81,13 @@ export async function actualizarReportes() {
         document.getElementById('repStatTotal').textContent = stats.total_evaluaciones;
         document.getElementById('repStatPromedio').textContent = stats.promedio_global.toFixed(2);
         
-        renderDimensionesChart(stats.promedios_dimensiones, dimensiones);
+        renderDocentesNivelesChart(stats.distribucion_func_grupo);
         renderNivelesChart(stats.distribucion_niveles);
-        renderAsignaturasChart(stats.por_asignatura);
+        renderMensualChart(stats.por_mes);
         renderColegiosChart(stats.por_colegio);
         renderCursosChart(stats.por_curso);
         renderComparativoChart(stats.dimensiones_por_colegio, dimensiones);
-        renderComparativoCursosChart(stats.dimensiones_por_curso, dimensiones);
+        renderDocentesDimensionesCharts(stats.dimensiones_por_docente, dimensiones);
         renderTalentMap(talentMap.puntaje, '');
         renderTalentMap(talentMap.orientacion, 'Orientacion');
         
@@ -87,26 +99,36 @@ export async function actualizarReportes() {
     }
 }
 
-function renderDimensionesChart(data, dimensiones) {
-    const ctx = document.getElementById('chartDimensiones').getContext('2d');
-    if (charts.dimensiones) charts.dimensiones.destroy();
+function renderDocentesNivelesChart(data) {
+    const ctx = document.getElementById('chartFuncGrupo').getContext('2d');
+    if (charts.docentesNiveles) charts.docentesNiveles.destroy();
     
-    // Mapear los nombres de las dimensiones (asumiendo que coinciden en orden con el array de promedios)
-    const labels = dimensiones && dimensiones.length > 0 
-        ? dimensiones.map(d => d.nombre)
-        : ['Dim 1', 'Dim 2', 'Dim 3', 'Dim 4', 'Dim 5'];
+    if (!data) return;
 
-    charts.dimensiones = new Chart(ctx, {
+    // Ordenar niveles según requerimiento
+    const labels = ["Bajo", "Regular", "Adecuado", "Bueno", "Muy bueno"];
+    const values = labels.map(l => data[l] || 0);
+
+    // Colores profesionales (Rojo -> Naranja -> Amarillo -> Verde -> Azul/Verde)
+    const backgroundColors = [
+        '#ff4d4d', // Bajo
+        '#ffa64d', // Regular
+        '#ffdb4d', // Adecuado
+        '#88cc00', // Bueno
+        '#00cc66'  // Muy bueno
+    ];
+
+    charts.docentesNiveles = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Promedio',
-                data: data,
-                backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                borderColor: 'rgba(54, 162, 235, 1)',
+                label: 'Cantidad de Profesores',
+                data: values,
+                backgroundColor: backgroundColors,
+                borderColor: backgroundColors.map(c => c),
                 borderWidth: 1,
-                borderRadius: 4
+                borderRadius: 6
             }]
         },
         options: {
@@ -115,30 +137,25 @@ function renderDimensionesChart(data, dimensiones) {
             plugins: {
                 legend: { display: false },
                 datalabels: {
+                    display: true,
                     anchor: 'end',
-                    align: 'start',
+                    align: 'top',
                     offset: 5,
-                    formatter: (value) => value > 0 ? value.toFixed(2) : '',
-                    font: { weight: 'bold', size: 13 },
-                    color: '#fff',
-                    textShadowColor: 'rgba(0,0,0,0.5)',
-                    textShadowBlur: 4,
-                    textAlign: 'center'
+                    formatter: (value) => value.toString(),
+                    font: { weight: 'bold', size: 14 },
+                    color: '#000',
+                    textShadowColor: 'rgba(255,255,255,0.8)',
+                    textShadowBlur: 3
                 }
             },
             scales: { 
                 y: { 
-                    beginAtZero: true, 
-                    max: 5,
-                    ticks: { stepSize: 1 }
+                    beginAtZero: true,
+                    suggestedMax: 5,
+                    ticks: { stepSize: 1, font: { weight: 'bold' } }
                 },
                 x: {
-                    ticks: {
-                        autoSkip: false,
-                        maxRotation: 45,
-                        minRotation: 0,
-                        font: { size: 11 }
-                    }
+                    ticks: { font: { weight: '700' } }
                 }
             }
         }
@@ -188,27 +205,56 @@ function renderNivelesChart(data) {
     });
 }
 
-function renderAsignaturasChart(data) {
-    const ctx = document.getElementById('chartAsignaturas').getContext('2d');
-    if (charts.asignaturas) charts.asignaturas.destroy();
+function renderMensualChart(data) {
+    const el = document.getElementById('chartMensual');
+    if (!el) {
+        console.warn('Canvas chartMensual no encontrado');
+        return;
+    }
+    const ctx = el.getContext('2d');
+    if (charts.mensual) charts.mensual.destroy();
     
-    charts.asignaturas = new Chart(ctx, {
+    // Si no hay datos, inicializar con ceros
+    const monthData = data || { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0 };
+
+    const labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const values = labels.map((_, i) => monthData[i + 1] || 0);
+
+    charts.mensual = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: Object.keys(data),
+            labels: labels,
             datasets: [{
-                label: 'Promedio Global',
-                data: Object.values(data),
-                backgroundColor: 'rgba(153, 102, 255, 0.6)',
-                borderColor: 'rgba(153, 102, 255, 1)',
-                borderWidth: 1
+                label: 'Acompañamientos',
+                data: values,
+                backgroundColor: '#003366',
+                borderColor: '#003366',
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            indexAxis: 'y',
-            scales: { x: { beginAtZero: true, max: 5 } }
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    offset: 3,
+                    formatter: (val) => val > 0 ? val : '0',
+                    font: { weight: 'bold', size: 12 },
+                    color: '#444'
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    suggestedMax: 5,
+                    ticks: { stepSize: 1 }
+                }
+            }
         }
     });
 }
@@ -314,79 +360,83 @@ function renderCursosChart(data) {
     });
 }
 
-function renderComparativoCursosChart(data, dimensiones) {
-    const ctx = document.getElementById('chartComparativoCursos').getContext('2d');
-    if (charts.comparativoCursos) charts.comparativoCursos.destroy();
-    
+function renderDocentesDimensionesCharts(data, dimensiones) {
     if (!data || Object.keys(data).length === 0) return;
 
-    // Eje X: Cursos (ordenados alfabéticamente)
-    const courseNames = Object.keys(data).sort();
-    const labels = courseNames;
-
-    // Nombres de Dimensiones (para los Datasets)
+    const docentes = Object.keys(data).sort();
+    
+    // Nombres de Dimensiones
     const dimNames = dimensiones && dimensiones.length > 0 
         ? dimensiones.map(d => d.nombre)
-        : ['Comunicación', 'Presencia de Liderazgo', 'Organización', 'Conducción del Grupo', 'Coherencia y Consecuencia'];
+        : ['Dim 1', 'Dim 2', 'Dim 3', 'Dim 4', 'Dim 5'];
 
-    // Crear 5 datasets (uno por cada dimensión)
+    // Colores para cada gráfico (pueden ser iguales o diferentes)
     const colors = [
-        'rgba(54, 162, 235, 0.7)',  // Dim 1 - Azul
-        'rgba(255, 99, 132, 0.7)',  // Dim 2 - Rojo
-        'rgba(255, 206, 86, 0.7)',  // Dim 3 - Amarillo
-        'rgba(75, 192, 192, 0.7)',  // Dim 4 - Verde agua
-        'rgba(153, 102, 255, 0.7)'  // Dim 5 - Púrpura
+        'rgba(54, 162, 235, 0.7)',  // Azul
+        'rgba(255, 99, 132, 0.7)',  // Rojo
+        'rgba(255, 206, 86, 0.7)',  // Amarillo
+        'rgba(75, 192, 192, 0.7)',  // Verde agua
+        'rgba(153, 102, 255, 0.7)'  // Púrpura
     ];
 
-    const datasets = dimNames.map((name, dimIndex) => {
-        return {
-            label: name,
-            data: courseNames.map(course => data[course][dimIndex] || 0),
-            backgroundColor: colors[dimIndex],
-            borderColor: colors[dimIndex].replace('0.7', '1'),
-            borderWidth: 1,
-            borderRadius: 4
-        };
-    });
+    // Iterar por las 5 dimensiones
+    for (let i = 0; i < 5; i++) {
+        const charId = `chartDocenteDim${i+1}`;
+        const titleId = `titleDim${i+1}`;
+        const ctx = document.getElementById(charId).getContext('2d');
+        const chartKey = `docenteDim${i+1}`;
 
-    charts.comparativoCursos = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { 
-                    position: 'top',
-                    labels: { boxWidth: 12, font: { size: 11 } }
-                },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'start',
-                    offset: 2,
-                    formatter: (value) => value > 0 ? value.toFixed(2) : '',
-                    font: { size: 9, weight: 'bold' },
-                    color: '#fff',
-                    textShadowColor: 'rgba(0,0,0,0.5)',
-                    textShadowBlur: 3
-                }
+        if (charts[chartKey]) charts[chartKey].destroy();
+
+        // Actualizar título
+        const titleEl = document.getElementById(titleId);
+        if (titleEl) titleEl.textContent = dimNames[i] || `Dimensión ${i+1}`;
+
+        const datasetValues = docentes.map(doc => data[doc][i] || 0);
+
+        charts[chartKey] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: docentes,
+                datasets: [{
+                    label: 'Puntaje',
+                    data: datasetValues,
+                    backgroundColor: colors[i],
+                    borderColor: colors[i].replace('0.7', '1'),
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
             },
-            scales: {
-                y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } },
-                x: {
-                    ticks: {
-                        autoSkip: false,
-                        maxRotation: 45,
-                        minRotation: 45,
-                        font: { size: 10 }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'start',
+                        offset: 2,
+                        formatter: (value) => value > 0 ? value.toFixed(2) : '0',
+                        font: { size: 10, weight: 'bold' },
+                        color: '#fff',
+                        textShadowColor: 'rgba(0,0,0,0.5)',
+                        textShadowBlur: 3
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } },
+                    x: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: { size: 10 }
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 function renderComparativoChart(data, dimensiones) {

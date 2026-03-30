@@ -1,0 +1,48 @@
+<!-- Página Configuración de Correos (Destinatarios Ocultos) -->
+<div id="pageConfigEmails" class="page">
+    <div class="page-header">
+        <h1>Configuración de Destinatarios (CC)</h1>
+        <p style="color: #666; margin-top: 5px;">Configure las cuentas de correo que recibirán una copia oculta de cada acompañamiento firmado.</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 30px; max-width: 600px;">
+        <div class="card-header">
+            <h3>➕ Agregar Nuevo Destinatario</h3>
+        </div>
+        <div class="card-body">
+            <form id="formAddRecipient" onsubmit="window.app.addEmailRecipient(event)">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Nombre / Cargo:</label>
+                        <input type="text" id="newRecipientNombre" class="form-control" placeholder="Ej: Dirección Académica" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Correo Electrónico:</label>
+                        <input type="email" id="newRecipientEmail" class="form-control" placeholder="correo@ejemplo.cl" required>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    <button type="submit" class="btn btn-primary">Guardar Destinatario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nombre / Cargo</th>
+                    <th>Email</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="emailRecipientsList">
+                <tr>
+                    <td colspan="4" class="text-center">Cargando destinatarios...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

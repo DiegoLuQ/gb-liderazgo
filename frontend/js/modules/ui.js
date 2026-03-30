@@ -10,6 +10,14 @@ export function closeModal() {
     }
 }
 
+export function showGenericModal(title, content) {
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.innerHTML = content;
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
 export async function showModal(type, data = null) {
     const isEdit = data !== null;
     const titleEl = document.getElementById('modalTitle');

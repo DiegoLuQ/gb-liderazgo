@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Date, ForeignKey, UniqueConstraint, Enum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -94,6 +94,7 @@ class Docente(Base):
     rut = Column(String(20), nullable=False)
     email = Column(String(100))
     colegio_id = Column(Integer, ForeignKey("cat_colegios.id"), nullable=False)
+    totp_secret = Column(String(100), nullable=True)  # Secreto Base32 para TOTP
     created_by = Column(Integer, ForeignKey("auth_usuarios.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -131,6 +132,13 @@ class Subdimension(Base):
     respuestas = relationship("EvaluacionRespuesta", back_populates="subdimension")
 
 
+class EvaluacionEstado(enum.Enum):
+    BORRADOR = "BORRADOR"
+    LISTO_PARA_FIRMA = "LISTO_PARA_FIRMA"
+    FIRMADA_DOCENTE = "FIRMADA_DOCENTE"
+    CERRADA = "CERRADA"
+
+
 class Evaluacion(Base):
     __tablename__ = "eval_evaluaciones"
 
@@ -152,6 +160,14 @@ class Evaluacion(Base):
     orientacion = Column(String(50))
     nivel_apoyo = Column(String(50))
     comentarios = Column(Text)
+    # Sección X: Psicología Organizacional
+    fecha_retro = Column(Date, nullable=True)
+    modalidad_retro = Column(String(255), nullable=True)
+    sintesis_retro = Column(Text, nullable=True)
+    acuerdos_mejora = Column(Text, nullable=True)
+    estado = Column(Enum(EvaluacionEstado), default=EvaluacionEstado.BORRADOR, nullable=False)
+    fecha_firma_docente = Column(DateTime(timezone=True), nullable=True)
+    codigo_firma = Column(String(20), nullable=True)
     fecha_guardado = Column(DateTime(timezone=True), server_default=func.now())
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id], back_populates="evaluaciones")
@@ -195,3 +211,13 @@ class FortalezaAspecto(Base):
     contenido = Column(Text, nullable=False)
 
     evaluacion = relationship("Evaluacion", back_populates="fortalezas_aspectos")
+
+
+class EmailRecipient(Base):
+    __tablename__ = "cfg_email_recipients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False)
+    nombre = Column(String(255), nullable=False)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -14,21 +14,30 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 BACKUP_RECIPIENT = os.getenv("BACKUP_RECIPIENT")
 
-def send_email_with_attachment(subject, body, filename, content, recipient=None):
+def send_email_with_attachment(subject, body, filename, content, recipient=None, bcc_recipients=None):
     if not SMTP_USER or not SMTP_PASSWORD:
         print("Error: SMTP credentials not set in .env")
         return False
 
-    to_email = recipient or BACKUP_RECIPIENT
-    if not to_email:
-        print("Error: No recipient specified for backup email")
+    to_emails = []
+    if recipient:
+        if isinstance(recipient, list):
+            to_emails = recipient
+        else:
+            to_emails = [recipient]
+    elif BACKUP_RECIPIENT:
+        to_emails = [BACKUP_RECIPIENT]
+
+    if not to_emails and not bcc_recipients:
+        print("Error: No recipient specified for email")
         return False
 
     try:
         # Create message
         msg = MIMEMultipart()
         msg['From'] = SMTP_USER
-        msg['To'] = to_email
+        if to_emails:
+            msg['To'] = ", ".join(to_emails)
         msg['Subject'] = subject
 
         msg.attach(MIMEText(body, 'plain'))
@@ -44,11 +53,13 @@ def send_email_with_attachment(subject, body, filename, content, recipient=None)
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
+        
+        all_recipients = to_emails + (bcc_recipients if bcc_recipients else [])
         text = msg.as_string()
-        server.sendmail(SMTP_USER, to_email, text)
+        server.sendmail(SMTP_USER, all_recipients, text)
         server.quit()
         
-        print(f"Email enviado correctamente a {to_email}")
+        print(f"Email enviado correctamente a {to_emails} (BCC: {len(bcc_recipients) if bcc_recipients else 0} extras)")
         return True
     except Exception as e:
         print(f"Error al enviar email: {str(e)}")

@@ -1,0 +1,19 @@
+        <!-- Página Resumen de Acompañamiento -->
+        <div id="pageResumenEvaluacion" class="page">
+            <div class="page-header">
+                <h1>✅ Acompañamiento Guardado</h1>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" onclick="window.app.imprimirResumen()">🖨️ Imprimir</button>
+                    <button class="btn btn-success" onclick="window.app.previsualizarPDF()">📄 Exportar PDF</button>
+                    <button class="btn btn-primary" id="btnResendEmail" onclick="window.app.showEmailResendModalFromHeader()"
+                        style="background: #004080; border: none;">📧 Enviar por Correo</button>
+                    <button class="btn btn-outline" style="background:white; border:1px solid #004080; color:#004080;"
+                        onclick="window.app.crearNuevaEvaluacion()">➕ Nuevo Acompañamiento</button>
+                    <button class="btn btn-primary" onclick="window.app.navigateTo('evaluaciones')">📋 Ver
+                        Acompañamientos</button>
+                </div>
+            </div>
+            <div id="resumenPageContent" style="padding-bottom: 30px;">
+                <!-- Contenido dinámico generado por mostrarResumen() -->
+            </div>
+        </div>

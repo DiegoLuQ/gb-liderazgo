@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Sistema de Liderazgo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="dashboard.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- SlimSelect for searchable dropdowns -->
@@ -15,20 +18,25 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
-            <h2>Liderazgo</h2>
-            <p>Sistema de Acompañamiento</p>
+            <div class="header-main">
+                <h2>Liderazgo</h2>
+                <p>Sistema de Acompañamiento</p>
+            </div>
+            <button id="sidebarToggle" class="sidebar-toggle-btn">
+                <span class="toggle-icon">❮</span>
+            </button>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-group">
                 <div class="nav-divider">Principal</div>
                 <a href="#" class="nav-item active" data-page="inicio">
-                    <span class="icon">📊</span> Inicio
+                    <span class="icon">📊</span> <span class="nav-text">Inicio</span>
                 </a>
                 <a href="#" class="nav-item" data-page="evaluaciones">
-                    <span class="icon">📝</span> Acompañamientos
+                    <span class="icon">📝</span> <span class="nav-text">Acompañamientos</span>
                 </a>
                 <a href="#" class="nav-item" data-page="nueva-evaluacion">
-                    <span class="icon">➕</span> Nuevo Acompañamiento
+                    <span class="icon">➕</span> <span class="nav-text">Nuevo Acompañamiento</span>
                 </a>
             </div>
 
@@ -36,38 +44,42 @@
                 <div class="nav-group">
                     <div class="nav-divider">Administración</div>
                     <a href="#" class="nav-item" data-page="colegios">
-                        <span class="icon">🏫</span> Colegios
+                        <span class="icon">🏫</span> <span class="nav-text">Colegios</span>
                     </a>
                     <a href="#" class="nav-item" data-page="docentes">
-                        <span class="icon">👨‍🏫</span> Docentes
+                        <span class="icon">👨‍🏫</span> <span class="nav-text">Docentes</span>
                     </a>
                     <a href="#" class="nav-item" data-page="cursos">
-                        <span class="icon">📚</span> Cursos
+                        <span class="icon">📚</span> <span class="nav-text">Cursos</span>
                     </a>
                     <a href="#" class="nav-item" data-page="asignaturas">
-                        <span class="icon">📖</span> Asignaturas
+                        <span class="icon">📖</span> <span class="nav-text">Asignaturas</span>
                     </a>
                     <a href="#" class="nav-item" data-page="plantilla">
-                        <span class="icon">📋</span> Plantilla
+                        <span class="icon">📋</span> <span class="nav-text">Plantilla</span>
                     </a>
                     <a href="#" class="nav-item" data-page="reportes">
-                        <span class="icon">📈</span> Reportes y KPIs
+                        <span class="icon">📈</span> <span class="nav-text">Reportes y KPIs</span>
                     </a>
                     <a href="#" class="nav-item" data-page="usuarios">
-                        <span class="icon">👥</span> Usuarios
+                        <span class="icon">👥</span> <span class="nav-text">Usuarios</span>
                     </a>
                 </div>
             </div>
 
             <!-- Nueva Sección de Configuración -->
-            <div id="backupMenu" class="nav-group sidebar-config">
+            <div id="backupMenu" class="nav-group sidebar-config border-top" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px;">
                 <div class="nav-divider">Configuración</div>
-                <div class="sidebar-select-container">
-                    <select id="sidebarConfigSelect">
-                        <option data-placeholder="true"></option>
-                        <option value="backup_manual">💾 Descargar Respaldo SQL</option>
-                        <option value="backup_email">📧 Enviar Respaldo por Correo</option>
-                    </select>
+                <a href="#" class="nav-item" data-page="config-emails">
+                    <span class="icon">⚙️</span> <span class="nav-text">Destinatarios Correo</span>
+                </a>
+                <div style="padding: 5px 15px; display: flex; flex-direction: column; gap: 5px;">
+                    <button class="btn-logout" onclick="respaldarManual()" style="font-size: 0.8em; text-align: left; padding: 8px;">
+                        <span class="icon">💾</span> Respaldo SQL
+                    </button>
+                    <button class="btn-logout" onclick="enviarRespaldoCorreo()" style="font-size: 0.8em; text-align: left; padding: 8px;">
+                        <span class="icon">📧</span> Respaldo Email
+                    </button>
                 </div>
             </div>
         </nav>
@@ -80,858 +92,23 @@
         </div>
     </div>
 
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <button id="mobileMenuBtn" class="mobile-menu-btn">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div class="mobile-logo">Liderazgo</div>
+    </div>
+
+    <!-- Sidebar Overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
     <main class="main-content">
-        <!-- Página Inicio -->
-        <div id="pageInicio" class="page active">
-            <div class="page-header">
-                <h1>Dashboard</h1>
-                <div class="header-filters">
-                    <select id="filterColegioDashboard" class="form-select" onchange="loadDashboardStats()">
-                        <option value="all">Todos los Colegios</option>
-                    </select>
-                </div>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statTotal">0</span>
-                        <span class="stat-label">Total Acompañamientos</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">📈</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statPromedio">0</span>
-                        <span class="stat-label">Promedio General</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">👨‍🏫</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statDocentes">0</span>
-                        <span class="stat-label">Docentes Observados</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="quick-actions">
-                <h3>Acciones Rápidas</h3>
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">
-                        ➕ Nuevo Acompañamiento
-                    </button>
-                    <button class="btn btn-secondary" onclick="exportExcel()">
-                        📊 Exportar Excel
-                    </button>
-                    <button class="btn btn-secondary" onclick="navigateTo('evaluaciones')">
-                        📋 Ver Acompañamientos
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Página Evaluaciones -->
-        <div id="pageEvaluaciones" class="page">
-            <div class="page-header">
-                <h1>Acompañamientos</h1>
-                <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">Nuevo Acompañamiento</button>
-            </div>
-            <!-- Barra de Filtros -->
-            <div class="filters-bar"
-                style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:#fff; padding:14px 20px; border-radius:10px; margin-bottom:20px; box-shadow:var(--shadow);">
-                <select id="filterColegioEval" class="form-select" style="min-width:180px;"
-                    onchange="loadEvaluaciones()">
-                    <option value="">Todos los Colegios</option>
-                </select>
-                <input type="text" id="filterDocenteEval" class="form-select" style="min-width:180px;"
-                    placeholder="🔍 Buscar docente..." oninput="loadEvaluaciones()">
-                <input type="date" id="filterFechaDesdeEval" class="form-select" style="min-width:150px;"
-                    onchange="loadEvaluaciones()" title="Desde">
-                <input type="date" id="filterFechaHastaEval" class="form-select" style="min-width:150px;"
-                    onchange="loadEvaluaciones()" title="Hasta">
-                <button class="btn btn-secondary" onclick="limpiarFiltrosEval()" style="white-space:nowrap;">✖ Limpiar
-                    filtros</button>
-            </div>
-            <div class="table-container">
-                <table class="data-table" id="evaluacionesTable">
-                    <thead>
-                        <tr id="evaluacionesHeader">
-                            <th style="display:none;">ID Docente</th>
-                            <th onclick="window.app.sortData('fecha')" style="cursor:pointer;"
-                                title="Ordenar por Fecha">Fecha ↕️</th>
-                            <th onclick="window.app.sortData('docente_nombre')" style="cursor:pointer;"
-                                title="Ordenar por Docente">Docente ↕️</th>
-                            <th onclick="window.app.sortData('colegio_nombre')" style="cursor:pointer;"
-                                title="Ordenar por Colegio">Colegio ↕️</th>
-                            <th onclick="window.app.sortData('curso_nombre')" style="cursor:pointer;"
-                                title="Ordenar por Curso">Curso ↕️</th>
-                            <th onclick="window.app.sortData('promedio')" style="cursor:pointer;"
-                                title="Ordenar por Promedio">Promedio ↕️</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="evaluacionesBody">
-                        <tr>
-                            <td colspan="7" class="text-center">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <!-- Página Resumen de Acompañamiento (reemplaza el modal en tamaño) -->
-        <div id="pageResumenEvaluacion" class="page">
-            <div class="page-header">
-                <h1>✅ Acompañamiento Guardado</h1>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn btn-secondary" onclick="window.app.imprimirResumen()">🖨️ Imprimir</button>
-                    <button class="btn btn-success" onclick="window.app.previsualizarPDF()">📄 Exportar PDF</button>
-                    <button class="btn btn-outline" style="background:white; border:1px solid #004080; color:#004080;"
-                        onclick="window.app.crearNuevaEvaluacion()">➕ Nuevo Acompañamiento</button>
-                    <button class="btn btn-primary" onclick="window.app.navigateTo('evaluaciones')">📋 Ver
-                        Acompañamientos</button>
-                </div>
-            </div>
-            <div id="resumenPageContent" style="padding-bottom: 30px;">
-                <!-- Contenido dinámico generado por mostrarResumen() -->
-            </div>
-        </div>
-
-        <!-- Página Nuevo Acompañamiento -->
-        <div id="pageNuevaEvaluacion" class="page">
-            <div class="page-header">
-                <h1 id="tituloFormulario">Nuevo Acompañamiento</h1>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn btn-success" id="btnDescargarFormulario" style="display:none;"
-                        onclick="window.app.descargarFormularioPDF()">📄 Descargar PDF</button>
-                    <button class="btn btn-secondary" onclick="window.app.navigateTo('evaluaciones')">← Volver</button>
-                </div>
-            </div>
-
-            <form id="evaluacionForm" class="evaluation-form">
-                <!-- Sección I: Datos del Acompañamiento -->
-                <section class="form-section">
-                    <h3>I. Datos del Acompañamiento</h3>
-                    <div class="form-grid-3">
-                        <div class="form-group">
-                            <label for="colegioSelect">Colegio *</label>
-                            <select id="colegioSelect" required>
-                                <option value="">Seleccione...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="docenteSelect">Docente *</label>
-                            <select id="docenteSelect" required disabled>
-                                <option value="">Primero seleccione un colegio</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="nivelSelect">Nivel *</label>
-                            <select id="nivelSelect" required disabled>
-                                <option value="">Seleccione...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="cursoSelect">Curso *</label>
-                            <select id="cursoSelect" required disabled>
-                                <option value="">Primero seleccione un nivel</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="asignaturaSelect">Asignatura *</label>
-                            <select id="asignaturaSelect" required disabled>
-                                <option value="">Primero seleccione un nivel</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Observador</label>
-                            <input type="text" id="observadorDisplay" readonly class="form-control"
-                                style="background-color: #f8f9fa;">
-                            <input type="hidden" id="observadorSelect">
-                        </div>
-                        <div class="form-group">
-                            <label for="fechaObservacion">Fecha de Observación *</label>
-                            <input type="date" id="fechaObservacion" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="duracion">Duración de la Observación</label>
-                            <input type="text" id="duracion" placeholder="Ej: 45 minutos">
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Sección II: Indicadores de Liderazgo -->
-                <section class="form-section">
-                    <h3>II. Acompañamiento de Indicadores de Liderazgo</h3>
-                    <p class="scale-info">Escala: 1 = Bajo | 2 = En desarrollo | 3 = Adecuado | 4 = Alto | 5 = Muy alto
-                    </p>
-
-                    <div id="rubricContainer">
-                        <p class="text-center">Cargando indicadores...</p>
-                    </div>
-
-                    <!-- Promedio Total -->
-                    <div class="result-box">
-                        <div class="result-main">
-                            <strong>Acompañamiento Global del Liderazgo Observado</strong><br>
-                            Promedio liderazgo observado: <span id="promedioDisplay" class="promedio-value">_____</span>
-                        </div>
-                        <div class="result-interpretation">
-                            <strong>Interpretación:</strong>
-                            <span id="interpretacionText">Complete todos los indicadores</span>
-                        </div>
-                    </div>
-                </section>
-                <section class="form-section agrupacion-final">
-                    <!-- Sección III: Funcionamiento del Grupo -->
-                    <div id="seccionFuncionamiento" class="inner-section">
-                        <h3>III. Funcionamiento del Grupo Durante la Clase</h3>
-                        <div class="radio-group-horizontal">
-                            <label><input type="radio" name="funcGrupo" value="Bajo" required> Bajo</label>
-                            <label><input type="radio" name="funcGrupo" value="Regular"> Regular</label>
-                            <label><input type="radio" name="funcGrupo" value="Adecuado"> Adecuado</label>
-                            <label><input type="radio" name="funcGrupo" value="Bueno"> Bueno</label>
-                            <label><input type="radio" name="funcGrupo" value="Muy bueno"> Muy bueno</label>
-                        </div>
-                    </div>
-
-                    <!-- Sección IV: Observaciones -->
-                    <div class="inner-section">
-                        <h3>IV. Observaciones</h3>
-                        <div class="form-group">
-                            <label for="fortalezas">Fortalezas observadas</label>
-                            <textarea id="fortalezas" rows="3"
-                                placeholder="Describa las fortalezas del docente..."></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="aspectos">Aspectos a fortalecer</label>
-                            <textarea id="aspectos" rows="3"
-                                placeholder="Describa los aspectos que deben fortalecerse..."></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Sección V: Orientación para el Desarrollo -->
-                    <div class="inner-section">
-                        <h3>V. Orientación para el Desarrollo</h3>
-                        <div class="radio-group-vertical">
-                            <label class="radio-option">
-                                <input type="radio" name="orientacion" value="Docente referente" required>
-                                <div class="radio-option-content">
-                                    <span>Docente referente</span>
-                                </div>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="orientacion" value="Buen desempeño">
-                                <div class="radio-option-content">
-                                    <span>Buen desempeño</span>
-                                </div>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="orientacion" value="En desarrollo">
-                                <div class="radio-option-content">
-                                    <span>En desarrollo</span>
-                                </div>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="orientacion" value="Requiere acompañamiento">
-                                <div class="radio-option-content">
-                                    <span>Requiere acompañamiento</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Sección VI: Nivel de Apoyo -->
-                    <div class="inner-section">
-                        <h3>VI. Orientación de Desarrollo Docente</h3>
-                        <p class="info-text">De acuerdo con la observación realizada, indique el nivel de apoyo o
-                            acompañamiento que podría requerir el docente.</p>
-
-                        <div class="suggestion-box" id="sugerenciaApoyo">
-                            <strong>Sugerencia según puntaje:</strong> <span id="sugerenciaText">Complete los
-                                indicadores</span>
-                        </div>
-
-                        <div class="radio-group-vertical">
-                            <label class="radio-option">
-                                <input type="radio" name="nivelApoyo" value="No requiere" required>
-                                <div class="radio-option-content">
-                                    <span><strong>No requiere acompañamiento</strong></span>
-                                    <small>El docente demuestra un liderazgo consolidado y puede actuar como referente
-                                        para otros docentes.</small>
-                                </div>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="nivelApoyo" value="Requiere acompañamiento">
-                                <div class="radio-option-content">
-                                    <span><strong>Requiere acompañamiento</strong></span>
-                                    <small>El docente presenta áreas de liderazgo en desarrollo que pueden fortalecerse
-                                        mediante retroalimentación o coaching.</small>
-                                </div>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="nivelApoyo" value="Prioritario">
-                                <div class="radio-option-content">
-                                    <span><strong>Requiere acompañamiento prioritario</strong></span>
-                                    <small>El docente requiere apoyo sistemático para fortalecer su liderazgo y
-                                        conducción del grupo.</small>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Sección VII: Tipo de Apoyo -->
-                    <div class="inner-section">
-                        <h3>VII. Tipo de Apoyo Sugerido</h3>
-                        <div class="checkbox-group">
-                            <label><input type="checkbox" class="tipoApoyo" value="Retroalimentación"> Retroalimentación
-                                posterior a la observación</label>
-                            <label><input type="checkbox" class="tipoApoyo" value="Coaching"> Sesión de coaching
-                                docente</label>
-                            <label><input type="checkbox" class="tipoApoyo" value="Seguimiento"> Observación de
-                                seguimiento</label>
-                            <label><input type="checkbox" class="tipoApoyo" value="Acompañamiento"> Acompañamiento
-                                formativo</label>
-                            <label><input type="checkbox" class="tipoApoyo" value="No requiere"> No requiere apoyo en
-                                esta etapa</label>
-                        </div>
-                    </div>
-
-                    <!-- Sección VIII: Comentarios -->
-                    <div class="inner-section section-comentarios">
-                        <h3>VIII. Comentarios para el Desarrollo</h3>
-                        <div class="form-group">
-                            <textarea id="comentarios" rows="4"
-                                placeholder="Ingrese comentarios adicionales para el desarrollo del docente..."></textarea>
-                        </div>
-                    </div>
-
-                    <div class="signature-section">
-                        <div class="signature-box">
-                            <div class="signature-line"></div>
-                            <p>Firma Docente Evaluado</p>
-                        </div>
-                        <div class="signature-box">
-                            <div class="signature-line"></div>
-                            <p>Firma Observador</p>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="form-actions">
-                    <button type="button" id="btnImprimirFormulario" class="btn btn-info btn-lg" style="display: none;"
-                        onclick="previsualizarPDF()">📄 Previsualizar PDF</button>
-                    <button type="submit" id="btnGuardarEvaluacion" class="btn btn-primary btn-lg">💾 Guardar
-                        Evaluación</button>
-                    <button type="button" class="btn btn-secondary" onclick="navigateTo('evaluaciones')">Volver</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Página Colegios -->
-        <div id="pageColegios" class="page">
-            <div class="page-header">
-                <h1>Colegios</h1>
-                <button class="btn btn-primary" onclick="showModal('colegio')">Agregar Colegio</button>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Dirección</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="colegiosBody">
-                        <tr>
-                            <td colspan="4">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Página Docentes -->
-        <div id="pageDocentes" class="page">
-            <div class="page-header">
-                <h1>Docentes</h1>
-                <div class="header-actions">
-                    <button class="btn btn-info" onclick="exportarDocentesExcel()" title="Exportar a Excel">📄
-                        Exportar</button>
-                    <button class="btn btn-warning" onclick="descargarDocentesPlantilla()"
-                        title="Descargar Plantilla">📥 Plantilla</button>
-                    <button class="btn btn-success" onclick="document.getElementById('importDocentesFile').click()"
-                        title="Importar desde Excel">📤 Importar</button>
-                    <input type="file" id="importDocentesFile" style="display: none;" accept=".xlsx, .xls"
-                        onchange="importarDocentesExcel(this)">
-                    <button class="btn btn-primary" onclick="showModal('docente')">Agregar Docente</button>
-                </div>
-            </div>
-            <div class="filters-bar">
-                <div class="filter-group">
-                    <label>Filtrar por Colegio:</label>
-                    <select id="filterColegioDocentes" class="form-select" onchange="loadDocentes()">
-                        <option value="">Todos los colegios</option>
-                    </select>
-                </div>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>RUT</th>
-                            <th>Email</th>
-                            <th>Colegio</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="docentesBody">
-                        <tr>
-                            <td colspan="6">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Página Cursos -->
-        <div id="pageCursos" class="page">
-            <div class="page-header">
-                <h1>Cursos</h1>
-                <button class="btn btn-primary" onclick="showModal('curso')">Agregar Curso</button>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nivel</th>
-                            <th>Letra</th>
-                            <th>Curso Completo</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cursosBody">
-                        <tr>
-                            <td colspan="5">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Página Reportes -->
-        <div id="pageReportes" class="page">
-            <div class="page-header">
-                <h1>Reportes y Estadísticas</h1>
-                <div class="header-actions">
-                    <button class="btn btn-info" onclick="exportarReportePDF()">📄 Exportar PDF</button>
-                </div>
-            </div>
-
-            <!-- Filtros de Reporte -->
-            <div class="filters-bar" style="margin-bottom: 25px;">
-                <div class="filter-group">
-                    <label>Colegio:</label>
-                    <select id="repFilterColegio" class="form-select" onchange="actualizarReportes()">
-                        <option value="">Todos los colegios</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Asignatura:</label>
-                    <select id="repFilterAsignatura" class="form-select" onchange="actualizarReportes()">
-                        <option value="">Todas las asignaturas</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Desde:</label>
-                    <input type="date" id="repFechaInicio" class="form-control" onchange="actualizarReportes()">
-                </div>
-                <div class="filter-group">
-                    <label>Hasta:</label>
-                    <input type="date" id="repFechaFin" class="form-control" onchange="actualizarReportes()">
-                </div>
-            </div>
-
-            <!-- KPIs -->
-            <div class="stats-grid" style="margin-bottom: 30px;">
-                <div class="stat-card">
-                    <div class="stat-icon">📝</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="repStatTotal">0</span>
-                        <span class="stat-label">Evaluaciones</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⭐</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="repStatPromedio">0.00</span>
-                        <span class="stat-label">Promedio Global</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gráficos -->
-            <div class="charts-container"
-                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px;">
-                <div class="dimension-card">
-                    <div class="dimension-header">
-                        <h3>Promedio por Dimensión</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 350px;">
-                        <canvas id="chartDimensiones"></canvas>
-                    </div>
-                </div>
-                <div class="dimension-card">
-                    <div class="dimension-header">
-                        <h3>Distribución de Niveles</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 350px;">
-                        <canvas id="chartNiveles"></canvas>
-                    </div>
-                </div>
-                <div class="dimension-card">
-                    <div class="dimension-header">
-                        <h3>Promedio por Asignatura</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 350px;">
-                        <canvas id="chartAsignaturas"></canvas>
-                    </div>
-                </div>
-                <div class="dimension-card">
-                    <div class="dimension-header">
-                        <h3>Promedio por Colegio</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 350px;">
-                        <canvas id="chartColegios"></canvas>
-                    </div>
-                </div>
-                <!-- Nuevo Gráfico por Curso (Grande) -->
-                <!-- Nuevo Gráfico de Comparativa por Curso (Dimensiones) -->
-                <div class="dimension-card" style="grid-column: 1 / -1;">
-                    <div class="dimension-header">
-                        <h3>Comparativa de Dimensiones por Curso</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 450px;">
-                        <canvas id="chartComparativoCursos"></canvas>
-                    </div>
-                </div>
-
-                <div class="dimension-card" style="grid-column: 1 / -1;">
-                    <div class="dimension-header">
-                        <h3>Promedio por Curso</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 400px;">
-                        <canvas id="chartCursos"></canvas>
-                    </div>
-                </div>
-                <div class="dimension-card" style="grid-column: 1 / -1;">
-                    <div class="dimension-header">
-                        <h3>Comparativa de Dimensiones por Colegio</h3>
-                    </div>
-                    <div class="dimension-body" style="padding: 20px; height: 400px;">
-                        <canvas id="chartComparativo"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mapa de Talentos (9-Box Lite) -->
-            <div class="talent-map-section" style="margin-top: 30px;">
-                <div class="dimension-card" style="box-shadow: var(--shadow-lg);">
-                    <div class="dimension-header"
-                        style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 18px 25px; background: #001f3f; border-bottom: none; border-radius: 12px 12px 0 0;"
-                        onclick="toggleTalentMap('')">
-                        <div style="display: flex; align-items: center; gap: 20px;">
-                            <h3
-                                style="margin:0; color: #fff; font-size: 1.15em; font-weight: 600; letter-spacing: 0.5px;">
-                                <i class="fas fa-layer-group" style="margin-right: 10px; color: #4fc3f7;"></i> Mapa de
-                                Talentos (Puntaje)
-                            </h3>
-                            <div style="position: relative; display: flex; align-items: center;"
-                                onclick="event.stopPropagation()">
-                                <select id="filterTalentView" class="form-select" style="width: auto; 
-                       height: 50px; 
-                       line-height: 1.2; 
-                       padding: 0 40px 0 15px; 
-                       font-size: 0.9em; 
-                       font-weight: 500; 
-                       border-radius: 20px; 
-                       border: 1px solid rgba(255,255,255,0.3); 
-                       background: rgba(255,255,255,0.1) !important; 
-                       color: #fff; 
-                       cursor: pointer; 
-                       appearance: none; 
-                       -webkit-appearance: none;
-                       background-image: none !important; /* Quita la flecha de Bootstrap */
-                       transition: all 0.3s;
-                       display: flex;
-                       align-items: center;" onchange="actualizarReportes()">
-                                    <option value="promedio" style="color: #333;">📊 Ver Promedios del Periodo</option>
-                                    <option value="ultimo" style="color: #333;">⏱️ Ver Última Evaluación</option>
-                                </select>
-                                <!-- Icono de flecha manual -->
-                                <i class="fas fa-chevron-down"
-                                    style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.8); pointer-events: none; font-size: 0.75em;"></i>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 20px;">
-                            <span
-                                style="background: #e91e63; color: white; padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 1px;">NUEVO</span>
-                            <i id="talentMapIcon" class="fas fa-chevron-down"
-                                style="color: #fff; transition: transform 0.3s; font-size: 1.1em;"></i>
-                        </div>
-                    </div>
-                    <div id="talentMapBody" class="dimension-body"
-                        style="display: none; padding: 30px; background: #f8f9fa; border: 1px solid #eee; border-top: none; border-radius: 0 0 12px 12px;">
-                        <div class="talent-grid">
-                            <!-- Referente / Avanzado -->
-                            <div class="talent-box box-avanzado">
-                                <div class="box-header">
-                                    <div class="box-labels">
-                                        <span class="box-title">Docente Referente</span>
-                                        <span class="box-level">Avanzado</span>
-                                    </div>
-                                    <span class="box-icon">🏆</span>
-                                </div>
-                                <div class="talent-list-container">
-                                    <ul class="talent-list" id="listAvanzado"></ul>
-                                </div>
-                            </div>
-
-                            <!-- Buen Desempeño / Intermedio -->
-                            <div class="talent-box box-intermedio">
-                                <div class="box-header">
-                                    <div class="box-labels">
-                                        <span class="box-title">Buen desempeño</span>
-                                        <span class="box-level">Intermedio</span>
-                                    </div>
-                                    <span class="box-icon">⭐</span>
-                                </div>
-                                <div class="talent-list-container">
-                                    <ul class="talent-list" id="listIntermedio"></ul>
-                                </div>
-                            </div>
-
-                            <!-- Inicial / Requiere Acompañamiento -->
-                            <div class="talent-box box-inicial">
-                                <div class="box-header">
-                                    <div class="box-labels">
-                                        <span class="box-title">Requiere Acompañamiento</span>
-                                        <span class="box-level">Inicial</span>
-                                    </div>
-                                    <span class="box-icon">🚩</span>
-                                </div>
-                                <div class="talent-list-container">
-                                    <ul class="talent-list" id="listInicial"></ul>
-                                </div>
-                            </div>
-
-                            <!-- En Desarrollo -->
-                            <div class="talent-box box-desarrollo">
-                                <div class="box-header">
-                                    <div class="box-labels">
-                                        <span class="box-title">Docente en Desarrollo</span>
-                                        <span class="box-level">En Desarrollo</span>
-                                    </div>
-                                    <span class="box-icon">🌱</span>
-                                </div>
-                                <div class="talent-list-container">
-                                    <ul class="talent-list" id="listDesarrollo"></ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Mapa de Talentos por Orientación -->
-                <div class="talent-map-section" style="margin-top: 30px;">
-                    <div class="dimension-card" style="box-shadow: var(--shadow-lg);">
-                        <div class="dimension-header"
-                            style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 18px 25px; background: #004d40; border-bottom: none; border-radius: 12px 12px 0 0;"
-                            onclick="toggleTalentMap('Orientacion')">
-                            <h3
-                                style="margin:0; color: #fff; font-size: 1.15em; font-weight: 600; letter-spacing: 0.5px;">
-                                <i class="fas fa-compass" style="margin-right: 10px; color: #80cbc4;"></i> Mapa de
-                                Talentos por Orientación para el Desarrollo
-                            </h3>
-                            <i id="talentMapIconOrientacion" class="fas fa-chevron-down"
-                                style="color: #fff; transition: transform 0.3s; font-size: 1.1em;"></i>
-                        </div>
-                        <div id="talentMapBodyOrientacion" class="dimension-body"
-                            style="display: none; padding: 30px; background: #f8f9fa; border: 1px solid #eee; border-top: none; border-radius: 0 0 12px 12px;">
-                            <div class="talent-grid">
-                                <!-- Docente Referente -->
-                                <div class="talent-box box-avanzado">
-                                    <div class="box-header">
-                                        <div class="box-labels">
-                                            <span class="box-title">Docente Referente</span>
-                                            <span class="box-level">Avanzado</span>
-                                        </div>
-                                        <span class="box-icon">🏆</span>
-                                    </div>
-                                    <div class="talent-list-container">
-                                        <ul class="talent-list" id="listAvanzadoOrientacion"></ul>
-                                    </div>
-                                </div>
-
-                                <!-- Buen Desempeño -->
-                                <div class="talent-box box-intermedio">
-                                    <div class="box-header">
-                                        <div class="box-labels">
-                                            <span class="box-title">Buen desempeño</span>
-                                            <span class="box-level">Intermedio</span>
-                                        </div>
-                                        <span class="box-icon">⭐</span>
-                                    </div>
-                                    <div class="talent-list-container">
-                                        <ul class="talent-list" id="listIntermedioOrientacion"></ul>
-                                    </div>
-                                </div>
-
-                                <!-- En Desarrollo -->
-                                <div class="talent-box box-inicial"
-                                    style="background: #fff3e0; border-left-color: #ffb74d;">
-                                    <div class="box-header" style="background: #ffe0b2;">
-                                        <div class="box-labels">
-                                            <span class="box-title" style="color: #e65100;">En desarrollo</span>
-                                            <span class="box-level" style="color: #ef6c00;">Inicial</span>
-                                        </div>
-                                        <span class="box-icon">📈</span>
-                                    </div>
-                                    <div class="talent-list-container">
-                                        <ul class="talent-list" id="listInicialOrientacion"></ul>
-                                    </div>
-                                </div>
-
-                                <!-- Requiere Acompañamiento -->
-                                <div class="talent-box box-prioritario"
-                                    style="background: #ffebee; border-left: 5px solid #ef5350;">
-                                    <div class="box-header" style="background: #ffcdd2;">
-                                        <div class="box-labels">
-                                            <span class="box-title" style="color: #c62828;">Requiere
-                                                acompañamiento</span>
-                                            <span class="box-level" style="color: #d32f2f;">Prioritario</span>
-                                        </div>
-                                        <span class="box-icon">🚩</span>
-                                    </div>
-                                    <div class="talent-list-container">
-                                        <ul class="talent-list" id="listPrioritarioOrientacion"></ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Página Asignaturas -->
-        <div id="pageAsignaturas" class="page">
-            <div class="page-header">
-                <h1>Asignaturas</h1>
-                <button class="btn btn-primary" onclick="showModal('asignatura')">Agregar Asignatura</button>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="asignaturasBody">
-                        <tr>
-                            <td colspan="3">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <!-- Página Plantilla -->
-        <div id="pagePlantilla" class="page">
-            <div class="page-header">
-                <h1>Plantilla de Evaluación</h1>
-                <div class="header-actions">
-                    <button class="btn btn-success" onclick="exportarPlantillaExcel()">
-                        📊 Exportar Excel
-                    </button>
-                    <button class="btn btn-primary" id="btnNuevaDimension" onclick="showModalDimension()">
-                        ➕ Nueva Dimensión
-                    </button>
-                </div>
-            </div>
-
-            <div class="info-box">
-                <p><strong>Nota:</strong> Arrastre las dimensiones e indicadores para reordenarlos. Los cambios se
-                    guardan automáticamente.</p>
-            </div>
-
-            <div id="plantillaContainer" class="plantilla-container">
-                <div class="loading">Cargando plantilla...</div>
-            </div>
-        </div>
-
-        <!-- Página Usuarios -->
-        <div id="pageUsuarios" class="page">
-            <div class="page-header">
-                <h1>Gestión de Usuarios</h1>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Usuario</th>
-                            <th>Email</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usuariosBody">
-                        <tr>
-                            <td colspan="6">Cargando...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <!-- Página Respaldo -->
-        <div id="pageRespaldo" class="page">
-            <div class="page-header">
-                <h1>Respaldo de Base de Datos</h1>
-            </div>
-
-            <div class="backup-container">
-                <div class="card backup-card">
-                    <div class="backup-info">
-                        <span class="backup-icon">🔒</span>
-                        <h3>Seguridad de la Información</h3>
-                        <p>Genere una copia de seguridad periódica de su base de datos para prevenir pérdida de
-                            información. El respaldo contiene toda la estructura y datos del sistema.</p>
-                    </div>
-                </div>
-
-                <div class="form-grid-2" style="margin-top: 20px;">
-                    <div class="card action-card" onclick="enviarRespaldoCorreo()">
-                        <div class="card-icon">📧</div>
-                        <h3>Enviar por Correo</h3>
-                        <p>Reciba un archivo SQL directamente en su cuenta de administrador configurada.</p>
-                        <button class="btn btn-primary">Enviar ahora</button>
-                    </div>
-
-                    <div class="card action-card" onclick="respaldarManual()">
-                        <div class="card-icon">💾</div>
-                        <h3>Respaldar Manualmente</h3>
-                        <p>Generar y descargar un archivo .sql al instante en su computadora.</p>
-                        <button class="btn btn-success">Descargar SQL</button>
-                    </div>
-                </div>
-            </div>
+        <div class="text-center p-5">
+            <div class="spinner"></div>
+            <p>Cargando sistema modular...</p>
         </div>
     </main>
 
@@ -944,6 +121,37 @@
     </div>
 
 
+
+    <!-- Modal Enrolamiento TOTP (Firma Digital) -->
+    <div id="modalTotpOverlay" class="modal-overlay">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>🔐 Configurar Firma Digital</h3>
+                <button class="modal-close" onclick="window.app.closeModalTotp()">&times;</button>
+            </div>
+            <div class="modal-body text-center" style="padding: 20px;">
+                <p id="totpDocenteNombre" style="font-weight: bold; font-size: 1.1em; color: #004080; margin-bottom: 5px;"></p>
+                <p id="totpDocenteRut" style="font-size: 0.9em; color: #888; margin-bottom: 20px;"></p>
+                
+                <p style="font-size: 0.9em; color: #666; margin-bottom: 20px;">
+                    Escanee este código QR con <b>Google Authenticator</b> para vincular la firma digital.
+                </p>
+                
+                <div id="qrcodeContainer" style="background: white; padding: 15px; border-radius: 8px; display: inline-block; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <!-- QR se genera aquí -->
+                </div>
+
+                <div class="form-group" style="max-width: 300px; margin: 0 auto;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: bold;">Ingrese el código de 6 dígitos:</label>
+                    <input type="text" id="totpVerifyCode" class="form-control text-center" maxlength="6" placeholder="000000" style="font-size: 1.5em; letter-spacing: 5px; height: 50px;">
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 15px;">
+                <button type="button" class="btn btn-secondary" onclick="window.app.closeModalTotp()">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnConfirmTotp">✅ Vincular Ahora</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Genérico -->
     <div id="modalOverlay" class="modal-overlay">
@@ -1024,9 +232,82 @@
         </div>
     </div>
 
+    <!-- Modal Configuración Firma (TOTP) -->
+    <div id="modalTotpOverlay" class="modal-overlay">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Configurar Firma Digital</h3>
+                <button class="modal-close" onclick="window.app.closeModalTotp()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 20px;">
+                <p style="margin-bottom: 20px; font-size: 0.95rem; color: #555;">
+                    Escanee este código con <b>Google Authenticator</b> para vincular su firma digital.
+                </p>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: inline-block; border: 1px solid #e9ecef; width: 100%;">
+                    <h4 id="totpDocenteNombre" style="margin: 0 0 5px; color: #002b5e;">Docente</h4>
+                    <p id="totpDocenteRut" style="margin: 0; font-size: 0.85rem; color: #666;"></p>
+                </div>
+
+                <div id="qrcodeContainer" style="display: flex; justify-content: center; margin: 20px 0; padding: 15px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); min-height: 200px; align-items: center;">
+                    <span style="color: #999;">Generando QR...</span>
+                </div>
+
+                <div class="form-group" style="margin-top: 25px; text-align: left;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 10px;">Ingrese el código de 6 dígitos para confirmar:</label>
+                    <input type="text" id="totpVerifyCode" class="form-control" placeholder="000000" 
+                        style="text-align: center; font-size: 1.8rem; letter-spacing: 5px; font-weight: 700; color: #002b5e;" maxlength="6" inputmode="numeric">
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                        Verifique que el código sea el que aparece actualmente en su aplicación móvil.
+                    </p>
+                </div>
+
+                <div class="form-actions" style="margin-top: 30px; display: flex; gap: 10px; justify-content: center;">
+                    <button type="button" class="btn btn-secondary" onclick="window.app.closeModalTotp()">Cancelar</button>
+                    <button type="button" id="btnConfirmTotp" class="btn btn-primary" style="padding-left: 30px; padding-right: 30px;">Vincular Firma</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Firma Digital (QR) -->
+    <div id="modalSignatureOverlay" class="modal-overlay">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>Firma Digital del Docente</h3>
+                <button class="modal-close" onclick="window.app.closeModalSignature()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 25px;">
+                <div id="manualSignatureContainer" style="margin-bottom: 25px; background: #f0f7ff; padding: 25px; border-radius: 12px; border: 1px solid #cce5ff; text-align: center;">
+                    <p style="font-size: 1.1rem; color: #003366; margin-bottom: 15px; font-weight: 600;">Ingrese el código de 6 dígitos de su App Google Authenticator:</p>
+                    <div style="display: flex; gap: 15px; justify-content: center; align-items: center;">
+                        <input type="text" id="manualSignatureCode" placeholder="000000" maxlength="6" 
+                               style="width: 180px; text-align: center; font-size: 1.8rem; letter-spacing: 5px; padding: 15px; border: 2px solid #003366; border-radius: 12px; font-weight: bold; color: #003366; background: white;">
+                        <button type="button" class="btn btn-primary" onclick="window.app.submitManualSignature()" style="padding: 18px 30px; font-size: 1.1rem; box-shadow: 0 4px 6px rgba(0,51,102,0.2); font-weight: 700;">✓ Firmar</button>
+                    </div>
+                    <p id="manualSignError" style="color: #dc3545; font-size: 0.9rem; margin-top: 10px; display: none; font-weight: 600;"></p>
+                </div>
+
+                <div style="margin-top: 20px; color: #1e293b; font-size: 0.95rem; line-height: 1.5; background: #e0f2fe; padding: 18px; border-radius: 10px; border: 1px solid #bae6fd; font-weight: 500;">
+                    <span style="font-size: 1.2rem; margin-right: 8px;">📢</span> <b>Aviso Legal:</b> Al firmar, el docente acepta dicho acompañamiento de liderazgo y los compromisos derivados del mismo.
+                </div>
+
+                <div style="margin-top: 15px; color: #666; font-size: 0.85rem; line-height: 1.4; padding: 0 10px;">
+                    <strong>Nota:</strong> Este proceso cerrará definitivamente el acompañamiento (Estado CERRADA). Una vez realizada la firma, se generará un código único de verificación.
+                </div>
+
+                <div class="form-actions" style="margin-top: 30px; display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="window.app.closeModalSignature()">Cerrar</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="window.app.cancelSignatureProcess()" style="width: 100%; font-size: 0.75rem; background: transparent; color: #dc3545; border: 1px solid #dc3545; border-radius: 8px; padding: 8px;">❌ Cancelar Proceso</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 

@@ -1,16 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, extract
+import logging
 from typing import List, Optional
 import pandas as pd
 import io
 from datetime import datetime, date
 
 from database import get_db
-from models import Evaluacion, EvaluacionRespuesta, EvaluacionApoyo, FortalezaAspecto, Usuario, Curso, Docente, Asignatura
-from schemas import EvaluacionCreate, EvaluacionResponse, EvaluacionListResponse
-from auth import get_current_active_user, require_admin_or_auditor
+from models import Evaluacion, EvaluacionRespuesta, EvaluacionApoyo, FortalezaAspecto, Usuario, Curso, Docente, Asignatura, EvaluacionEstado, EmailRecipient
+from schemas import EvaluacionCreate, EvaluacionResponse, EvaluacionListResponse, EvaluacionUpdate
+from auth import get_current_active_user, require_admin_or_auditor, SECRET_KEY, ALGORITHM
+from utils.websocket_manager import manager
+from utils.email import send_evaluation_email
+from jose import jwt, JWTError
+import os
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
 
 router = APIRouter(prefix="/evaluaciones", tags=["Evaluaciones"])
 
@@ -35,6 +42,13 @@ def build_evaluacion_response(evaluacion: Evaluacion) -> dict:
         "orientacion": evaluacion.orientacion,
         "nivel_apoyo": evaluacion.nivel_apoyo,
         "comentarios": evaluacion.comentarios,
+        "fecha_retro": evaluacion.fecha_retro,
+        "modalidad_retro": evaluacion.modalidad_retro,
+        "sintesis_retro": evaluacion.sintesis_retro,
+        "acuerdos_mejora": evaluacion.acuerdos_mejora,
+        "estado": evaluacion.estado.value if evaluacion.estado else "BORRADOR",
+        "codigo_firma": evaluacion.codigo_firma,
+        "fecha_firma_docente": evaluacion.fecha_firma_docente,
         "fecha_guardado": evaluacion.fecha_guardado,
         "docente": {
             "id": evaluacion.docente.id,
@@ -44,6 +58,7 @@ def build_evaluacion_response(evaluacion: Evaluacion) -> dict:
             "colegio_id": evaluacion.docente.colegio_id,
             "created_by": evaluacion.docente.created_by,
             "created_at": evaluacion.docente.created_at,
+            "totp_secret": evaluacion.docente.totp_secret,
             "colegio": {
                 "id": evaluacion.docente.colegio.id,
                 "nombre": evaluacion.docente.colegio.nombre,
@@ -104,6 +119,18 @@ def build_evaluacion_response(evaluacion: Evaluacion) -> dict:
     }
 
 
+@router.get("/public/ver/{codigo}")
+def get_public_evaluacion(codigo: str, db: Session = Depends(get_db)):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.codigo_firma == codigo).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado o código inválido")
+    
+    if evaluacion.estado.value != "CERRADA":
+        raise HTTPException(status_code=403, detail="El acompañamiento aún no está finalizado")
+        
+    return build_evaluacion_response(evaluacion)
+
+
 @router.post("/", response_model=EvaluacionResponse)
 def crear_evaluacion(
     evaluacion_data: EvaluacionCreate,
@@ -130,7 +157,11 @@ def crear_evaluacion(
         promedio_dim5=evaluacion_data.promedio_dim5,
         orientacion=evaluacion_data.orientacion,
         nivel_apoyo=evaluacion_data.nivel_apoyo,
-        comentarios=evaluacion_data.comentarios
+        comentarios=evaluacion_data.comentarios,
+        fecha_retro=evaluacion_data.fecha_retro,
+        modalidad_retro=evaluacion_data.modalidad_retro,
+        sintesis_retro=evaluacion_data.sintesis_retro,
+        acuerdos_mejora=evaluacion_data.acuerdos_mejora
     )
     db.add(new_eval)
     db.flush()
@@ -196,6 +227,8 @@ def listar_evaluaciones(
             "curso_nombre": f"{e.curso.nivel.nombre} {e.curso.letra}" if e.curso and e.curso.nivel else None,
             "asignatura_nombre": e.asignatura.nombre if e.asignatura else None,
             "observador_nombre": e.observador.username if e.observador else None,
+            "estado": e.estado.value if e.estado else "BORRADOR",
+            "codigo_firma": e.codigo_firma,
             "fecha_guardado": e.fecha_guardado
         })
     return result
@@ -322,6 +355,7 @@ def get_stats(
     asignatura_id: Optional[int] = Query(None),
     fecha_inicio: Optional[str] = Query(None),
     fecha_fin: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -330,21 +364,34 @@ def get_stats(
         joinedload(Evaluacion.curso).joinedload(Curso.nivel),
         joinedload(Evaluacion.asignatura)
     )
-    
     if colegio_id:
-        query = query.filter(Docente.colegio_id == colegio_id)
+        query = query.filter(Docente.colegio_id == int(colegio_id))
     if asignatura_id:
-        query = query.filter(Evaluacion.asignatura_id == asignatura_id)
+        query = query.filter(Evaluacion.asignatura_id == int(asignatura_id))
+
+    # Filtrar en Python para máxima compatibilidad con Enums/Fechas
+    evaluaciones_raw = query.options(joinedload(Evaluacion.docente)).all()
+    
+    evaluaciones = []
+    for e in evaluaciones_raw:
+        if e.estado != EvaluacionEstado.CERRADA:
+            continue
+        if anio:
+            if not e.fecha_firma_docente or e.fecha_firma_docente.year != int(anio):
+                continue
+        evaluaciones.append(e)
+
     if fecha_inicio:
         try:
             start_dt = datetime.strptime(fecha_inicio, '%Y-%m-%d')
-            query = query.filter(Evaluacion.fecha >= start_dt)
+            query = query.filter(Evaluacion.fecha_firma_docente >= start_dt)
         except ValueError:
             pass
+            
     if fecha_fin:
         try:
             end_dt = datetime.strptime(fecha_fin, '%Y-%m-%d')
-            query = query.filter(Evaluacion.fecha <= end_dt)
+            query = query.filter(Evaluacion.fecha_firma_docente <= end_dt)
         except ValueError:
             pass
             
@@ -359,6 +406,7 @@ def get_stats(
             "por_asignatura": {},
             "por_colegio": {},
             "por_curso": {},
+            "por_mes": {m: 0 for m in range(1, 13)},
             "dimensiones_por_colegio": {}
         }
         
@@ -376,15 +424,23 @@ def get_stats(
         
     promedios_dims = [ round(dim_sums[i] / dim_counts[i], 2) if dim_counts[i] > 0 else 0 for i in range(5) ]
     
-    niveles = {"Bajo": 0, "En desarrollo": 0, "Adecuado": 0, "Alto": 0, "Muy alto": 0}
+    # Armonización de Niveles (Bajo, Regular, Adecuado, Bueno, Muy bueno)
+    niveles = {"Bajo": 0, "Regular": 0, "Adecuado": 0, "Bueno": 0, "Muy bueno": 0}
     for e in evaluaciones:
         p = e.promedio
+        if p is None: continue
         if p < 2.0: niveles["Bajo"] += 1
-        elif p < 3.0: niveles["En desarrollo"] += 1
-        elif p < 4.0: niveles["Adecuado"] += 1
-        elif p < 4.5: niveles["Alto"] += 1
-        else: niveles["Muy alto"] += 1
+        elif p < 3.0: niveles["Regular"] += 1
+        elif p < 3.6: niveles["Adecuado"] += 1
+        elif p < 4.5: niveles["Bueno"] += 1
+        else: niveles["Muy bueno"] += 1
         
+    # Agregación por Mes (Cantidad de Acompañamientos)
+    por_mes = {m: 0 for m in range(1, 13)}
+    for e in evaluaciones:
+        if e.fecha_firma_docente:
+            por_mes[e.fecha_firma_docente.month] += 1
+
     asig_stats = {}
     for e in evaluaciones:
         asig_name = e.asignatura.nombre if e.asignatura else "Sin asignatura"
@@ -436,6 +492,26 @@ def get_stats(
             for d in dims
         ]
 
+    # Promedios por Dimensión per Docente (NUEVO REQUERIMIENTO)
+    dims_docente_stats = {}
+    for e in evaluaciones:
+        docente_name = e.docente.nombre if e.docente else "Sin docente"
+        if docente_name not in dims_docente_stats:
+            dims_docente_stats[docente_name] = [{"suma": 0.0, "cuenta": 0} for _ in range(5)]
+        
+        if e.promedio_dim1 is not None: dims_docente_stats[docente_name][0]["suma"] += e.promedio_dim1; dims_docente_stats[docente_name][0]["cuenta"] += 1
+        if e.promedio_dim2 is not None: dims_docente_stats[docente_name][1]["suma"] += e.promedio_dim2; dims_docente_stats[docente_name][1]["cuenta"] += 1
+        if e.promedio_dim3 is not None: dims_docente_stats[docente_name][2]["suma"] += e.promedio_dim3; dims_docente_stats[docente_name][2]["cuenta"] += 1
+        if e.promedio_dim4 is not None: dims_docente_stats[docente_name][3]["suma"] += e.promedio_dim4; dims_docente_stats[docente_name][3]["cuenta"] += 1
+        if e.promedio_dim5 is not None: dims_docente_stats[docente_name][4]["suma"] += e.promedio_dim5; dims_docente_stats[docente_name][4]["cuenta"] += 1
+
+    dimensiones_por_docente = {}
+    for doc_name, dims in dims_docente_stats.items():
+        dimensiones_por_docente[doc_name] = [
+            round(d["suma"] / d["cuenta"], 2) if d["cuenta"] > 0 else 0 
+            for d in dims
+        ]
+
     # Promedios por Dimensión per Colegio
     dims_col_stats = {}
     for e in evaluaciones:
@@ -456,6 +532,30 @@ def get_stats(
             for d in dims
         ]
 
+    # 10. Distribución de Niveles por Docente (NUEVO REQUERIMIENTO)
+    # Calculamos el promedio de cada docente en el periodo filtrado
+    docente_promedios = {}
+    for e in evaluaciones:
+        did = e.docente_id
+        if did not in docente_promedios:
+            docente_promedios[did] = []
+        docente_promedios[did].append(e.promedio)
+    
+    dist_docentes_niveles = {"Bajo": 0, "Regular": 0, "Adecuado": 0, "Bueno": 0, "Muy bueno": 0}
+    for did, scores in docente_promedios.items():
+        avg = sum(scores) / len(scores)
+        if avg < 2.0: dist_docentes_niveles["Bajo"] += 1
+        elif avg < 3.0: dist_docentes_niveles["Regular"] += 1
+        elif avg < 3.6: dist_docentes_niveles["Adecuado"] += 1
+        elif avg < 4.5: dist_docentes_niveles["Bueno"] += 1
+        else: dist_docentes_niveles["Muy bueno"] += 1
+
+    # 11. Distribución Funcionamiento del Grupo (Global)
+    dist_func_grupo = {"Bajo": 0, "Regular": 0, "Adecuado": 0, "Bueno": 0, "Muy bueno": 0}
+    for e in evaluaciones:
+        if e.func_grupo in dist_func_grupo:
+            dist_func_grupo[e.func_grupo] += 1
+
     return {
         "total_evaluaciones": total,
         "promedio_global": round(promedio_global, 2),
@@ -464,8 +564,12 @@ def get_stats(
         "por_asignatura": por_asignatura,
         "por_colegio": por_colegio,
         "por_curso": por_curso,
+        "por_mes": por_mes,
         "dimensiones_por_curso": dimensiones_por_curso,
-        "dimensiones_por_colegio": dimensiones_por_colegio
+        "dimensiones_por_docente": dimensiones_por_docente,
+        "dimensiones_por_colegio": dimensiones_por_colegio,
+        "distribucion_func_grupo": dist_func_grupo,
+        "distribucion_docentes_niveles": dist_docentes_niveles
     }
 
 
@@ -530,12 +634,12 @@ def get_talent_map(
             
         teacher_info = {"nombre": data["nombre"], "puntaje": display_score}
         
-        # Clasificación por Puntaje
-        if display_score >= 4.5:
+        # Clasificación por Puntaje (Nueva escala 1-5)
+        if display_score >= 4.0:
             talent_map_puntaje["avanzado"].append(teacher_info)
-        elif display_score >= 3.5:
+        elif display_score >= 3.0:
             talent_map_puntaje["intermedio"].append(teacher_info)
-        elif display_score >= 2.5:
+        elif display_score >= 2.0:
             talent_map_puntaje["en_desarrollo"].append(teacher_info)
         else:
             talent_map_puntaje["inicial"].append(teacher_info)
@@ -589,6 +693,212 @@ def obtener_evaluacion(
     return build_evaluacion_response(evaluacion)
 
 
+@router.put("/{evaluacion_id}", response_model=EvaluacionResponse)
+def actualizar_evaluacion(
+    evaluacion_id: int,
+    eval_data: EvaluacionUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    import json
+    with open("debug_last_put.json", "w") as f:
+        json.dump(eval_data.dict(exclude_unset=True), f, indent=4, default=str)
+    
+    print(f"DEBUG: Actualizando evaluación {evaluacion_id} con datos guardados en debug_last_put.json")
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == evaluacion_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+    
+    # Solo se puede editar si el usuario es el creador (o admin) y está en BORRADOR
+    if current_user.rol_id == 3 and evaluacion.usuario_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para editar esta evaluación")
+    
+    if evaluacion.estado != EvaluacionEstado.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden editar evaluaciones en estado BORRADOR")
+    
+    if eval_data.sintesis_retro is not None:
+        evaluacion.sintesis_retro = eval_data.sintesis_retro
+    if eval_data.acuerdos_mejora is not None:
+        evaluacion.acuerdos_mejora = eval_data.acuerdos_mejora
+    if eval_data.comentarios is not None:
+        evaluacion.comentarios = eval_data.comentarios
+
+    # Actualizar fortalezas y aspectos (reemplazo completo)
+    if eval_data.fortalezas_aspectos is not None:
+        evaluacion.fortalezas_aspectos.clear()
+        db.flush()  # Asegurar que se eliminen antes de insertar
+        
+        for fa in eval_data.fortalezas_aspectos:
+            nueva_fa = FortalezaAspecto(
+                evaluacion_id=evaluacion.id,
+                tipo=fa.tipo,
+                contenido=fa.contenido
+            )
+            evaluacion.fortalezas_aspectos.append(nueva_fa)
+            
+    db.commit()
+    
+    # Recargar la evaluación con todas sus relaciones
+    evaluacion_final = db.query(Evaluacion).options(
+        joinedload(Evaluacion.fortalezas_aspectos),
+        joinedload(Evaluacion.docente).joinedload(Docente.colegio),
+        joinedload(Evaluacion.curso).joinedload(Curso.nivel),
+        joinedload(Evaluacion.asignatura),
+        joinedload(Evaluacion.observador)
+    ).filter(Evaluacion.id == evaluacion_id).first()
+    
+    return build_evaluacion_response(evaluacion_final)
+
+
+@router.post("/{eval_id}/prepare-sign")
+async def prepare_sign(
+    eval_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+    
+    # Solo se puede preparar si está en BORRADOR o LISTO_PARA_FIRMA
+    if evaluacion.estado not in [EvaluacionEstado.BORRADOR, EvaluacionEstado.LISTO_PARA_FIRMA]:
+        raise HTTPException(status_code=400, detail="El estado actual no permite preparar la firma")
+    
+    evaluacion.estado = EvaluacionEstado.LISTO_PARA_FIRMA
+    db.commit()
+    return {"message": "Acompañamiento listo para firma", "estado": evaluacion.estado.value}
+
+
+@router.get("/{eval_id}/sign-token")
+async def get_sign_token(
+    eval_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+    
+    if evaluacion.estado != EvaluacionEstado.LISTO_PARA_FIRMA:
+        raise HTTPException(status_code=400, detail="El acompañamiento no está listo para firma")
+    
+    # Crear un token de corta duración (10 min) para el QR
+    import time
+    payload = {
+        "eval_id": eval_id,
+        "docente_id": evaluacion.docente_id,
+        "exp": time.time() + 600  # 10 minutos
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return {"token": token}
+
+
+@router.get("/public-detail")
+async def get_public_detail(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        eval_id = payload.get("eval_id")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+        
+    return {
+        "id": evaluacion.id,
+        "docente_nombre": evaluacion.docente.nombre,
+        "colegio_nombre": evaluacion.docente.colegio.nombre,
+        "curso": f"{evaluacion.curso.nivel.nombre} {evaluacion.curso.letra}",
+        "asignatura": evaluacion.asignatura.nombre,
+        "fecha": evaluacion.fecha,
+        "promedio": float(evaluacion.promedio) if evaluacion.promedio else 0.0,
+        "estado": evaluacion.estado.value
+    }
+
+
+@router.post("/public-sign")
+async def public_sign(
+    data: dict,  # {"token": "...", "code": "123456"}
+    db: Session = Depends(get_db)
+):
+    token = data.get("token")
+    code = data.get("code")
+    
+    if not token or not code:
+        raise HTTPException(status_code=400, detail="Token y código TOTP son requeridos")
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        eval_id = payload.get("eval_id")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+    
+    if evaluacion.estado != EvaluacionEstado.LISTO_PARA_FIRMA:
+        raise HTTPException(status_code=400, detail="El acompañamiento ya no está disponible para firma")
+    
+    # Verificar TOTP del docente
+    import pyotp
+    if not evaluacion.docente.totp_secret:
+        raise HTTPException(status_code=400, detail="El docente no tiene configurada la firma digital")
+        
+    totp = pyotp.TOTP(evaluacion.docente.totp_secret)
+    if totp.verify(code):
+        import secrets
+        # Generar código único de verificación (ej: FA-7B8C29)
+        verif_code = f"FA-{secrets.token_hex(3).upper()}"
+        
+        evaluacion.estado = EvaluacionEstado.CERRADA
+        evaluacion.fecha_firma_docente = datetime.now()
+        evaluacion.codigo_firma = verif_code
+        db.commit()
+        
+        # NOTIFICAR POR WEBSOCKET
+        await manager.notify_signature(eval_id, {
+            "event": "DOCENTE_FIRMO",
+            "docente_nombre": evaluacion.docente.nombre,
+            "verificacion": verif_code,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Generar link para que el observador comparta (reusamos el token de acceso si existe o pasamos el ID)
+        # En este sistema, el link de firma (firmar.html?token=...) sirve para ver el estado también
+        public_link = f"{FRONTEND_URL}/firmar.html?token={token or ''}" # El token viene del request
+        
+        return {
+            "message": "Firma realizada exitosamente",
+            "codigo_verificacion": verif_code,
+            "public_link": public_link
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Código TOTP incorrecto")
+
+
+@router.post("/{eval_id}/finalize")
+async def finalize_evaluation(
+    eval_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+    
+    if evaluacion.estado != EvaluacionEstado.FIRMADA_DOCENTE:
+        raise HTTPException(status_code=400, detail="El docente debe firmar antes de cerrar")
+    
+    evaluacion.estado = EvaluacionEstado.CERRADA
+    db.commit()
+    return {"message": "Acompañamiento cerrado definitivamente", "estado": evaluacion.estado.value}
+
+
 @router.delete("/{evaluacion_id}")
 def eliminar_evaluacion(
     evaluacion_id: int,
@@ -613,6 +923,136 @@ def eliminar_evaluacion(
     db.delete(evaluacion)
     db.commit()
     return {"message": "Evaluación eliminada correctamente"}
+
+
+@router.post("/{eval_id}/send-email")
+async def send_email_accompaniment(
+    eval_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+    
+    # 1. Recopilar destinatarios
+    recipients = []
+    
+    # Email del docente
+    if evaluacion.docente and evaluacion.docente.email:
+        recipients.append(evaluacion.docente.email)
+    
+    # Email del observador (el que lo creó)
+    if evaluacion.observador and evaluacion.observador.email:
+        recipients.append(evaluacion.observador.email)
+    
+    # Otros destinatarios ocultos (CCO) desde la configuración
+    extras = db.query(EmailRecipient).filter(EmailRecipient.activo == True).all()
+    bcc_list = [extra.email for extra in extras]
+    
+    # Eliminar duplicados en recipients directos
+    recipients = list(set(recipients))
+    
+    if not recipients and not bcc_list:
+        raise HTTPException(status_code=400, detail="No hay destinatarios válidos para enviar el correo")
+    
+    # 2. Enviar correo
+    subject = f"Acompañamiento de Liderazgo - {evaluacion.docente.nombre}"
+    
+    # Texto plano para clientes que no soportan HTML
+    body_plain = f"""
+    Estimado/a {evaluacion.docente.nombre},
+    
+    Se ha generado un nuevo registro del acompañamiento de liderazgo realizado el {evaluacion.fecha.strftime('%d/%m/%Y') if evaluacion.fecha else 'N/A'}.
+    
+    Docente: {evaluacion.docente.nombre}
+    Estado: {evaluacion.estado.value}
+    Verificación: {evaluacion.codigo_firma or 'N/A'}
+    
+    Puede visualizar el acta oficial en línea en el siguiente enlace:
+    {FRONTEND_URL}/ver-acta.html?c={evaluacion.codigo_firma}
+    """
+    
+    # Versión HTML Profesional
+    body_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Inter', sans-serif, Arial; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f7f9; }}
+            .container {{ max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e1e8ed; }}
+            .header {{ background: linear-gradient(135deg, #002b5e 0%, #004080 100%); color: #ffffff; padding: 35px 25px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; text-transform: uppercase; }}
+            .header p {{ margin: 8px 0 0; font-size: 14px; opacity: 0.9; font-style: italic; font-weight: 300; }}
+            .content {{ padding: 30px 40px; }}
+            .greeting {{ font-size: 18px; font-weight: 600; color: #002b5e; margin-bottom: 20px; }}
+            .data-table {{ width: 100%; border-collapse: separate; border-spacing: 0; margin: 25px 0; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }}
+            .data-table td {{ padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }}
+            .data-table tr:last-child td {{ border-bottom: none; }}
+            .label {{ font-weight: 700; color: #64748b; width: 35%; }}
+            .value {{ color: #1e293b; font-weight: 500; }}
+            .status-badge {{ background: #28a745; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; }}
+            .btn-container {{ text-align: center; margin: 35px 0 10px; }}
+            .btn {{ background-color: #004080; color: #ffffff !important; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,64,128,0.2); }}
+            .footer {{ background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }}
+            .footer p {{ margin: 5px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Acompañamiento Liderazgo</h1>
+                <p>Fortaleciendo el liderazgo educativo para una gestión de excelencia</p>
+            </div>
+            <div class="content">
+                <div class="greeting">Estimado/a {evaluacion.docente.nombre},</div>
+                <p>Se ha generado el registro oficial del acompañamiento de liderazgo realizado. Ya puede visualizar las observaciones y acuerdos alcanzados durante la sesión.</p>
+                
+                <table class="data-table">
+                    <tr>
+                        <td class="label">Docente</td>
+                        <td class="value">{evaluacion.docente.nombre}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Fecha</td>
+                        <td class="value">{evaluacion.fecha.strftime('%d/%m/%Y') if evaluacion.fecha else 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Estado</td>
+                        <td class="value"><span class="status-badge">{evaluacion.estado.value}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Verificación</td>
+                        <td class="value" style="font-family: monospace; font-weight: 700; color: #004080;">{evaluacion.codigo_firma or 'N/A'}</td>
+                    </tr>
+                </table>
+
+                <div class="btn-container">
+                    <a href="{FRONTEND_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn">Visualizar Acta Oficial</a>
+                </div>
+            </div>
+            <div class="footer">
+                <p><strong>Sistema de Gestión de Liderazgo</strong></p>
+                <p>Colegio Diego Portales - Red de Acompañamiento</p>
+                <p>© {datetime.now().year} Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    success = send_evaluation_email(
+        to_emails=recipients,
+        subject=subject,
+        body=body_plain,
+        body_html=body_html,
+        bcc_emails=bcc_list
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al enviar el correo")
+        
+    return {"message": "Correo enviado exitosamente", "recipients": recipients}
 
 
 

@@ -1,18 +1,22 @@
 import { api } from './api.js';
 import { state } from './state.js';
 import { loadUserInfo, setupNavigation, navigateTo, logout } from './navigation.js';
-import { mostrarLoading, showAlert, closeAlert, capitalize } from './utils.js';
+import { mostrarLoading, showAlert, closeAlert, capitalize, loadModularPages } from './utils.js';
 import { showModal, closeModal } from './modules/ui.js';
 import { 
     loadDocentes, saveDocente, deleteDocente, editDocente, 
-    loadColegiosForFilter, exportarDocentesExcel, descargarDocentesPlantilla, importarDocentesExcel 
+    loadColegiosForFilter, exportarDocentesExcel, descargarDocentesPlantilla, importarDocentesExcel,
+    setupTOTP, confirmTOTP, closeModalTotp
 } from './modules/docentes.js';
 import { 
     loadEvaluaciones, initEvaluacionForm, guardarEvaluacion, 
     calcularPromedios, closeResumen, verDetalle, deleteEvaluacion,
     previsualizarPDF, cerrarPreviewPDF, descargarPDF, imprimirResumen, crearNuevaEvaluacion,
     limpiarFiltrosEval, loadColegiosForEvalFilter, verFormularioSoloLectura, sortData,
-    descargarFormularioPDF
+    descargarFormularioPDF, prepareSignature, finalizeEvaluation,
+    closeModalSignature, cancelSignatureProcess, submitManualSignature,
+    sendEmailAccompaniment, showEmailSuccessModal, copyShareLink, sendEmailWithSummary,
+    showEmailResendModal, showEmailResendModalFromHeader, guardarCambiosBorrador
 } from './modules/evaluaciones.js';
 import { 
     loadDashboardStats, loadColegiosForDashboardFilter 
@@ -43,11 +47,21 @@ const app = {
     // Docentes
     loadDocentes, saveDocente, deleteDocente, editDocente,
     loadColegiosForFilter, exportarDocentesExcel, descargarDocentesPlantilla, importarDocentesExcel,
+    setupTOTP, confirmTOTP, closeModalTotp,
     // Evaluaciones
     loadEvaluaciones, initEvaluacionForm, guardarEvaluacion,
     calcularPromedios, closeResumen, verDetalle, deleteEvaluacion,
     previsualizarPDF, cerrarPreviewPDF, descargarPDF, imprimirResumen, crearNuevaEvaluacion,
     limpiarFiltrosEval, loadColegiosForEvalFilter, verFormularioSoloLectura, sortData, descargarFormularioPDF,
+    prepareSignature, finalizeEvaluation,
+    closeModalSignature, cancelSignatureProcess, submitManualSignature,
+    sendEmailAccompaniment,
+    showEmailResendModal,
+    showEmailResendModalFromHeader,
+    showEmailSuccessModal,
+    copyShareLink,
+    sendEmailWithSummary,
+    guardarCambiosBorrador,
     // Dashboard
     loadDashboardStats, loadColegiosForDashboardFilter,
     // Config
@@ -63,7 +77,11 @@ const app = {
     loadPlantilla, showModalDimension, saveDimension, deleteDimension,
     showModalIndicador, saveIndicador, deleteIndicador, exportarPlantillaExcel,
     // Utils
-    showAlert, closeAlert, mostrarLoading, capitalize
+    showAlert, closeAlert, mostrarLoading, capitalize,
+    // Configuración de Correos
+    loadEmailRecipients,
+    addEmailRecipient,
+    deleteEmailRecipient
 };
 
 Object.assign(window, app);
@@ -110,6 +128,9 @@ window.addEventListener('page-navigation', async (e) => {
         case 'resumen-evaluacion':
             window.scrollTo(0, 0);
             break;
+        case 'config-emails':
+            await loadEmailRecipients();
+            break;
     }
 });
 
@@ -117,15 +138,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('Initializing Modular Frontend...');
     
     try {
+        await loadModularPages();
+        console.log('Modular pages loaded successfully');
+
         if (!api.checkAuth()) return;
 
         setupNavigation();
         
-        try {
-            await loadUserInfo();
-        } catch (authErr) {
-            console.warn('Non-blocking auth error:', authErr);
-        }
+        await loadUserInfo();
+        console.log('User info loaded successfully');
         
         // Global Event Listeners
         document.getElementById('btnLogout')?.addEventListener('click', logout);
@@ -137,21 +158,73 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lastPage = localStorage.getItem('lastPage') || 'inicio';
         navigateTo(lastPage);
 
-        // Initialize SlimSelect for Config with safety
-        if (document.getElementById('sidebarConfigSelect') && typeof SlimSelect !== 'undefined') {
-            new SlimSelect({
-                select: '#sidebarConfigSelect',
-                settings: { showSearch: false, placeholderText: 'Configuración' }
-            });
-            
-            document.getElementById('sidebarConfigSelect').addEventListener('change', (e) => {
-                const value = e.target.value;
-                if (value === 'backup_manual') respaldarManual();
-                else if (value === 'backup_email') enviarRespaldoCorreo();
-                if (value) setTimeout(() => { e.target.value = ''; }, 1000);
-            });
-        }
+        // Menú de configuración: Ahora son links directos manejados por setupNavigation
     } catch (globalErr) {
         console.error('Fatal initialization error:', globalErr);
+        document.body.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 20px;">
+                <h1 style="color: #dc3545;">Error de Inicialización</h1>
+                <p>No se pudo cargar el sistema correctamente. Por favor, intenta recargar la página.</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; max-width: 600px; overflow: auto; border: 1px solid #ddd;">
+                    <code style="color: #c62828;">${globalErr.message}</code>
+                </div>
+            </div>
+        `;
     }
 });
+
+// --- Funciones de Configuración de Correos ---
+async function loadEmailRecipients() {
+    try {
+        const recipients = await api.config.getEmailRecipients();
+        const listEl = document.getElementById('emailRecipientsList');
+        if (!listEl) return;
+        
+        listEl.innerHTML = recipients.map(r => `
+            <tr>
+                <td>${r.nombre}</td>
+                <td>${r.email}</td>
+                <td><span class="badge ${r.activo ? 'badge-success' : 'badge-secondary'}">${r.activo ? 'Activo' : 'Inactivo'}</span></td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="window.app.deleteEmailRecipient(${r.id})">Eliminar</button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" class="text-center">No hay destinatarios configurados.</td></tr>';
+    } catch (error) {
+        console.error('Error loadEmailRecipients:', error);
+    }
+}
+
+async function addEmailRecipient(e) {
+    if (e) e.preventDefault();
+    const nombre = document.getElementById('newRecipientNombre').value;
+    const email = document.getElementById('newRecipientEmail').value;
+    
+    if (!nombre || !email) return;
+    
+    try {
+        mostrarLoading(true, 'Agregando destinatario...');
+        await api.config.createEmailRecipient({ nombre, email, activo: true });
+        mostrarLoading(false);
+        document.getElementById('formAddRecipient').reset();
+        await loadEmailRecipients();
+        showAlert('Éxito', 'Destinatario agregado correctamente', 'success');
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', error.message, 'error');
+    }
+}
+
+async function deleteEmailRecipient(id) {
+    if (!confirm('¿Desea eliminar este destinatario?')) return;
+    try {
+        mostrarLoading(true, 'Eliminando...');
+        await api.config.deleteEmailRecipient(id);
+        mostrarLoading(false);
+        await loadEmailRecipients();
+        showAlert('Éxito', 'Destinatario eliminado', 'success');
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', error.message, 'error');
+    }
+}

@@ -43,11 +43,10 @@ export function capitalize(str) {
 
 export function getInterpretacion(promedio) {
     if (!promedio) return '-';
-    if (promedio < 2) return 'Bajo (1.0 - 1.9)';
-    if (promedio < 3) return 'En Desarrollo (2.0 - 2.9)';
-    if (promedio < 4) return 'Adecuado (3.0 - 3.9)';
-    if (promedio < 4.5) return 'Alto (4.0 - 4.4)';
-    return 'Sobresaliente (4.5 - 5.0)';
+    if (promedio >= 4.0) return 'Liderazgo consolidado';
+    if (promedio >= 3.0) return 'Liderazgo adecuado';
+    if (promedio >= 2.0) return 'Liderazgo en desarrollo';
+    return 'Liderazgo bajo';
 }
 
 export function getBadgeClass(promedio) {
@@ -74,10 +73,53 @@ export function delay(ms) {
 
 export function formatFecha(fechaStr) {
     if (!fechaStr) return '-';
+    // Si viene como YYYY-MM-DD (fecha pura sin hora), evitar el shift de zona horaria
+    if (typeof fechaStr === 'string' && fechaStr.includes('-') && !fechaStr.includes('T') && !fechaStr.includes(':')) {
+        const parts = fechaStr.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
     const date = new Date(fechaStr);
     return date.toLocaleDateString('es-CL', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
     });
+}
+
+export async function loadModularPages() {
+    const container = document.querySelector('.main-content');
+    if (!container) return;
+
+    const pages = [
+        'page-inicio.html',
+        'page-evaluaciones.html',
+        'page-resumen.html',
+        'page-nueva-evaluacion.html',
+        'page-colegios.html',
+        'page-docentes.html',
+        'page-cursos.html',
+        'page-reportes.html',
+        'page-asignaturas.html',
+        'page-plantilla.html',
+        'page-usuarios.html',
+        'page-respaldo.html',
+        'page-config-emails.html'
+    ];
+
+    // Limpiar contenedor (opcional, pero para asegurar que está vacío)
+    container.innerHTML = '<div class="text-center p-5"><div class="spinner"></div><p>Cargando módulos...</p></div>';
+
+    try {
+        const results = await Promise.all(pages.map(async (page) => {
+            const resp = await fetch(page);
+            if (!resp.ok) throw new Error(`No se pudo cargar el módulo: ${page}`);
+            return await resp.text();
+        }));
+
+        container.innerHTML = results.join('\n');
+    } catch (err) {
+        console.error('Error cargando páginas modulares:', err);
+        container.innerHTML = `<p class="text-danger text-center">Error al cargar los módulos del sistema: ${err.message}</p>`;
+        throw err; // Re-throw to be caught by main.js
+    }
 }

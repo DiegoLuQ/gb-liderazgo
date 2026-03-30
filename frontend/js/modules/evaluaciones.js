@@ -6,11 +6,13 @@ import { mostrarLoading, showAlert, getInterpretacion, formatFecha, getBadgeClas
 let _allEvaluaciones = null;
 let _sortConfig = { column: 'fecha', direction: 'desc' };
 
-export async function loadEvaluaciones() {
+export async function loadEvaluaciones(forceReload = false) {
     const tbody = document.getElementById('evaluacionesBody');
     if (!tbody) return;
 
     try {
+        if (forceReload) _allEvaluaciones = null;
+        
         if (!_allEvaluaciones) {
             _allEvaluaciones = await api.evaluaciones.getAll();
             // Load colegios filter the first time
@@ -95,21 +97,50 @@ function renderEvaluaciones(data) {
 
     tbody.innerHTML = filtered.map(e => `
         <tr>
-            <td style="display:none;">${e.docente_id}</td>
+            <td style="font-weight: 600; color: #003366;">#${e.id}</td>
             <td>${formatFecha(e.fecha)}</td>
             <td>${e.docente_nombre || '-'}</td>
             <td>${e.colegio_nombre || '-'}</td>
-            <td>${e.curso_nombre || '-'}</td>
             <td><span class="badge ${getBadgeClass(e.promedio)}">${e.promedio ? Number(e.promedio).toFixed(2) : '-'}</span></td>
+            <td>${getStatusBadge(e.estado)}</td>
             <td>
-                <div class="actions">
-                    <button class="btn btn-info btn-sm" onclick="window.app.verDetalle(${e.id})" title="Ver Resumen">👁️ Ver</button>
-                    <button class="btn btn-secondary btn-sm" onclick="window.app.verFormularioSoloLectura(${e.id})" title="Ver Formulario Original">📋 Formulario</button>
-                    ${parseInt(localStorage.getItem('userRole')) === 1 ? `<button class="btn btn-danger btn-sm" onclick="window.app.deleteEvaluacion(${e.id})">Eliminar</button>` : ''}
+                <div class="actions" style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="btn btn-info btn-sm" onclick="window.app.verDetalle(${e.id})" title="Ver Resumen" style="padding: 5px 10px;">👁️</button>
+                    <button class="btn btn-secondary btn-sm" onclick="window.app.verFormularioSoloLectura(${e.id})" title="Ver Formulario Original" style="padding: 5px 10px;">📋</button>
+                    ${parseInt(localStorage.getItem('userRole')) === 1 ? `
+                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteEvaluacion(${e.id})" title="Eliminar Permanentemente" style="padding: 5px 10px;">🗑️</button>
+                    ` : ''}
                 </div>
             </td>
         </tr>
     `).join('');
+}
+
+function getStatusBadge(estado) {
+    const st = String(estado || 'BORRADOR').toUpperCase();
+    let label = st;
+    let className = 'badge-status-borrador';
+
+    switch (st) {
+        case 'BORRADOR': 
+            label = 'Borrador'; 
+            className = 'badge-status-borrador'; 
+            break;
+        case 'LISTO_PARA_FIRMA': 
+            label = 'Listo para Firma'; 
+            className = 'badge-status-listo'; 
+            break;
+        case 'FIRMADA_DOCENTE': 
+            label = 'Firmada por Docente'; 
+            className = 'badge-status-firmada'; 
+            break;
+        case 'CERRADA': 
+            label = 'Cerrada'; 
+            className = 'badge-status-cerrada'; 
+            break;
+    }
+
+    return `<span class="badge ${className}" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; white-space: nowrap;">${label}</span>`;
 }
 
 export function limpiarFiltrosEval() {
@@ -124,6 +155,7 @@ export async function verFormularioSoloLectura(id) {
         await initEvaluacionForm(); // Resetear y cargar bases
         
         const evaluacion = await api.evaluaciones.getById(id);
+        setState('currentEvalId', id); // Store current ID in state
         const e = evaluacion;
 
         // Llenar campos básicos (Diferente ID en HTML)
@@ -198,19 +230,111 @@ export async function verFormularioSoloLectura(id) {
             if (asp) document.getElementById('aspectos').value = asp.contenido;
         }
 
-        // Deshabilitar TODO
+        // SECCIÓN X: Psicología Organizacional
+        const fechaRetroEl = document.getElementById('fechaRetroalimentacion');
+        if (fechaRetroEl) fechaRetroEl.value = e.fecha_retro || '';
+
+        if (e.modalidad_retro) {
+            const mods = e.modalidad_retro.split(', ');
+            mods.forEach(m => {
+                const cb = document.querySelector(`input[name="modalidadRetro"][value="${m.trim()}"]`);
+                if (cb) cb.checked = true;
+            });
+        }
+
+        const sintesisRetroEl = document.getElementById('sintesisRetro');
+        if (sintesisRetroEl) sintesisRetroEl.value = e.sintesis_retro || '';
+
+        const acuerdosMejoraEl = document.getElementById('acuerdosMejora');
+        if (acuerdosMejoraEl) acuerdosMejoraEl.value = e.acuerdos_mejora || '';
+
+        // Deshabilitar campos (Excepto si es BORRADOR para campos específicos)
+        const esBorrador = e.estado === 'BORRADOR';
+        
         document.querySelectorAll('#evaluacionForm input, #evaluacionForm select, #evaluacionForm textarea').forEach(el => {
-            el.disabled = true;
+            // Campos permitidos en borrador
+            const idPermitido = ['sintesisRetro', 'acuerdosMejora', 'comentarios', 'fortalezas', 'aspectos'].includes(el.id);
+            if (esBorrador && idPermitido) {
+                el.disabled = false;
+            } else {
+                el.disabled = true;
+            }
         });
 
         // UI Adjustments
+        const badge = document.getElementById('badgeEstado');
+        if (badge) {
+            badge.innerText = e.estado || 'BORRADOR';
+            badge.style.display = 'inline-block';
+            badge.style.background = esBorrador ? '#ffc107' : '#28a745';
+            badge.style.color = esBorrador ? '#000' : '#fff';
+        }
+
         const btnGuardar = document.getElementById('btnGuardarEvaluacion');
         if (btnGuardar) btnGuardar.style.display = 'none';
+        // Configurar botones de acción para BORRADOR
+        const btnGuardarBorrador = document.getElementById('btnGuardarBorrador');
+        const btnFirmarBorrador = document.getElementById('btnFirmarBorrador');
+        const btnAsignarFirma = document.getElementById('btnAsignarFirma');
+
+        const esListoFirma = e.estado === 'LISTO_PARA_FIRMA';
+        
+        if (esBorrador || esListoFirma) {
+            if (btnGuardarBorrador) {
+                btnGuardarBorrador.style.display = esBorrador ? 'inline-block' : 'none';
+                btnGuardarBorrador.dataset.evalId = evaluacion.id;
+            }
+
+            // Lógica de botones de firma
+            if (evaluacion.docente && evaluacion.docente.has_totp) {
+                if (btnFirmarBorrador) {
+                    btnFirmarBorrador.style.display = 'inline-block';
+                    btnFirmarBorrador.dataset.evalId = evaluacion.id;
+                    btnFirmarBorrador.innerHTML = '<span class="icon">✍️</span> Firma docente';
+                }
+                if (btnAsignarFirma) btnAsignarFirma.style.display = 'none';
+            } else {
+                if (btnFirmarBorrador) btnFirmarBorrador.style.display = 'none';
+                if (btnAsignarFirma) {
+                    btnAsignarFirma.style.display = 'inline-block';
+                    btnAsignarFirma.dataset.docenteId = evaluacion.docente ? evaluacion.docente.id : '';
+                }
+            }
+        } else {
+            if (btnGuardarBorrador) btnGuardarBorrador.style.display = 'none';
+            if (btnFirmarBorrador) btnFirmarBorrador.style.display = 'none';
+            if (btnAsignarFirma) btnAsignarFirma.style.display = 'none';
+        }
+
+        // Habilitar campos editables si es BORRADOR
         
         const btnPdf = document.getElementById('btnDescargarFormulario');
         if (btnPdf) btnPdf.style.display = 'block';
 
+        const btnSend = document.getElementById('btnEnviarCorreoDetalle');
+        if (btnSend) btnSend.style.display = (e.estado === 'CERRADA') ? 'block' : 'none';
+
         document.querySelector('#tituloFormulario').textContent = `Detalle de Acompañamiento #${id} (Solo Lectura)`;
+        
+        // Mostrar aviso de firma si está CERRADA
+        const signatureInfo = document.getElementById('signatureInfoForm');
+        if (signatureInfo) {
+            if (e.estado === 'CERRADA') {
+                signatureInfo.innerHTML = `
+                    <div style="background: #e7f3ff; color: #004085; padding: 12px 20px; border-radius: 8px; border: 1px solid #b8daff; margin-bottom: 20px; font-weight: 600; display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">🛡️</span> Firmada digitalmente vía Google Authenticator
+                        </div>
+                        <div style="font-size: 0.85rem; padding-left: 32px; opacity: 0.9;">
+                            <span>Este documento ya se encuentra firmado reglamentariamente.</span>
+                        </div>
+                    </div>
+                `;
+                signatureInfo.style.display = 'block';
+            } else {
+                signatureInfo.style.display = 'none';
+            }
+        }
         
         mostrarLoading(false);
         window.app.navigateTo('nueva-evaluacion', true);
@@ -363,9 +487,9 @@ export async function loadDimensionesRubric() {
             const dimNum = dimIndex + 1;
             html += `
                 <div class="dimension-card">
-                    <div class="dimension-header" style="background: var(--primary); color: white;">
-                        <h3 style="margin: 0; font-size: 1.1em;">Dimensión ${dimNum}: ${dim.nombre}</h3>
-                        <div class="dim-score">Promedio: <span id="promedioDim${dimNum}">0.00</span></div>
+                    <div class="dimension-header" style="background: #003366; color: #ffffff; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px;">
+                        <h3 style="margin: 0; font-size: 1.1em; color: #ffffff;">Dimensión ${dimNum}: ${dim.nombre}</h3>
+                        <div class="dim-score" style="color: #ffffff; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px;">Promedio: <span id="promedioDim${dimNum}">0.00</span></div>
                     </div>
                     <div class="dimension-body">
             `;
@@ -463,8 +587,32 @@ export function calcularPromedios() {
     const interpretacionEl = document.getElementById('interpretacionText');
     if (interpretacionEl) {
         if (promedioTotal !== null) {
-            interpretacionEl.textContent = getInterpretacion(promedioTotal);
+            const intText = getInterpretacion(promedioTotal);
+            interpretacionEl.textContent = intText;
             interpretacionEl.style.fontWeight = 'bold';
+            
+            // AUTOMATIZACIÓN: Seleccionar Orientación para el Desarrollo
+            if (promedioTotal >= 4.0) {
+                const radio = document.querySelector('input[name="orientacion"][value="Docente referente"]');
+                if (radio) radio.checked = true;
+                const radioApoyo = document.querySelector('input[name="nivelApoyo"][value="No requiere"]');
+                if (radioApoyo) radioApoyo.checked = true;
+            } else if (promedioTotal >= 3.0) {
+                const radio = document.querySelector('input[name="orientacion"][value="Buen desempeño"]');
+                if (radio) radio.checked = true;
+                const radioApoyo = document.querySelector('input[name="nivelApoyo"][value="Requiere acompañamiento"]');
+                if (radioApoyo) radioApoyo.checked = true;
+            } else if (promedioTotal >= 2.0) {
+                const radio = document.querySelector('input[name="orientacion"][value="En desarrollo"]');
+                if (radio) radio.checked = true;
+                const radioApoyo = document.querySelector('input[name="nivelApoyo"][value="Requiere acompañamiento"]');
+                if (radioApoyo) radioApoyo.checked = true;
+            } else {
+                const radio = document.querySelector('input[name="orientacion"][value="Requiere acompañamiento"]');
+                if (radio) radio.checked = true;
+                const radioApoyo = document.querySelector('input[name="nivelApoyo"][value="Prioritario"]');
+                if (radioApoyo) radioApoyo.checked = true;
+            }
         } else {
             interpretacionEl.textContent = 'Complete todos los indicadores';
             interpretacionEl.style.fontWeight = 'normal';
@@ -474,8 +622,76 @@ export function calcularPromedios() {
     return { promedioTotal, resultados, totalCount };
 }
 
-export async function guardarEvaluacion(e) {
-    if (e) e.preventDefault();
+export async function guardarCambiosBorrador(evalIdArg) {
+    try {
+        const evalId = evalIdArg || document.getElementById('btnGuardarBorrador')?.dataset?.evalId;
+        if (!evalId) {
+            showAlert('Error', 'No se encontró el ID de la evaluación para guardar.', 'error');
+            return;
+        }
+
+        mostrarLoading(true, 'Guardando cambios del borrador...');
+
+        const findVisibleVal = (id1, id2) => {
+            const el1 = document.getElementById(id1);
+            if (el1 && el1.offsetParent !== null) return el1.value;
+            const el2 = document.getElementById(id2);
+            if (el2 && el2.offsetParent !== null) return el2.value;
+            return null;
+        };
+
+        const updateData = {};
+        
+        const sVal = findVisibleVal('sintesisRetroBorrador', 'sintesisRetro');
+        if (sVal !== null) updateData.sintesis_retro = sVal;
+
+        const aVal = findVisibleVal('acuerdosMejoraBorrador', 'acuerdosMejora');
+        if (aVal !== null) updateData.acuerdos_mejora = aVal;
+
+        const cVal = findVisibleVal('comentariosBorrador', 'comentarios');
+        if (cVal !== null) updateData.comentarios = cVal;
+
+        const fEl = document.getElementById('fortalezasBorrador') || document.getElementById('fortalezas');
+        const aEl = document.getElementById('aspectosBorrador') || document.getElementById('aspectos');
+        
+        // Para fortalezas/aspectos, verificamos visibilidad del primero encontrado
+        const visibleF = (fEl && fEl.offsetParent !== null) ? fEl : null;
+        const visibleA = (aEl && aEl.offsetParent !== null) ? aEl : null;
+
+        if (visibleF || visibleA) {
+            updateData.fortalezas_aspectos = [];
+            if (visibleF) updateData.fortalezas_aspectos.push({ tipo: 'fortaleza', contenido: visibleF.value.trim() });
+            if (visibleA) updateData.fortalezas_aspectos.push({ tipo: 'aspecto', contenido: visibleA.value.trim() });
+        }
+
+        console.log('SISTEMA V3.4 - Datos:', updateData);
+        
+        const preview = `¿Guardar cambios? (V3.4)\n\n` + 
+                       `- Síntesis: ${(updateData.sintesis_retro || '').substring(0, 30)}...\n` +
+                       `- Comentarios: ${(updateData.comentarios || '').substring(0, 30)}...\n` +
+                       `- Fortalezas: ${updateData.fortalezas_aspectos ? updateData.fortalezas_aspectos.length : 0} items`;
+        
+        if (!confirm(preview)) {
+            mostrarLoading(false);
+            return;
+        }
+
+        const evaluacion = await api.evaluaciones.update(evalId, updateData);
+        mostrarLoading(false);
+        
+        showAlert('Éxito (V3.4)', 'El borrador ha sido actualizado correctamente.', 'success');
+        setTimeout(() => location.reload(), 1500);
+
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarLoading(false);
+        showAlert('Error', 'No se pudieron guardar los cambios: ' + error.message, 'error');
+    }
+}
+
+
+export async function guardarEvaluacion(event) {
+    if (event) event.preventDefault();
     const { promedioTotal, resultados, totalCount } = calcularPromedios();
 
     if (totalCount === 0) {
@@ -514,6 +730,11 @@ export async function guardarEvaluacion(e) {
         orientacion: document.querySelector('input[name="orientacion"]:checked')?.value || '',
         nivel_apoyo: document.querySelector('input[name="nivelApoyo"]:checked')?.value || '',
         comentarios: document.getElementById('comentarios').value,
+        // Sección X: Psicología Organizacional
+        fecha_retro: document.getElementById('fechaRetroalimentacion')?.value || null,
+        modalidad_retro: Array.from(document.querySelectorAll('input[name="modalidadRetro"]:checked')).map(cb => cb.value).join(', '),
+        sintesis_retro: document.getElementById('sintesisRetro')?.value || '',
+        acuerdos_mejora: document.getElementById('acuerdosMejora')?.value || '',
         respuestas,
         apoyos: Array.from(document.querySelectorAll('.tipoApoyo:checked')).map(cb => ({ apoyo: cb.value })),
         fortalezas_aspectos: [
@@ -525,6 +746,7 @@ export async function guardarEvaluacion(e) {
     try {
         mostrarLoading(true, 'Guardando acompañamiento...');
         const evaluacion = await api.evaluaciones.create(data);
+        _allEvaluaciones = null; // Clear cache to include new item in list
         mostrarLoading(false);
         mostrarResumen(evaluacion);
     } catch (error) {
@@ -537,8 +759,201 @@ export async function verDetalle(id) {
     try {
         mostrarLoading(true, 'Cargando detalle...');
         const evaluacion = await api.evaluaciones.getById(id);
+        setState('currentEvalId', id); // Store current ID in state
         mostrarLoading(false);
         mostrarResumen(evaluacion);
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', error.message, 'error');
+    }
+}
+
+// FIRMA DIGITAL (TOTP)
+let currentSignToken = null;
+let currentSignEvalId = null;
+
+export async function prepareSignature(id) {
+    try {
+        mostrarLoading(true, 'Iniciando proceso de firma...');
+        await api.evaluaciones.prepareSign(id);
+        
+        // Obtener el token para el QR
+        const { token } = await api.evaluaciones.getSignToken(id);
+        currentSignToken = token;
+        currentSignEvalId = id;
+        mostrarLoading(false);
+
+        // Limpiar errores previos del modal manual
+        const errorEl = document.getElementById('manualSignError');
+        if (errorEl) errorEl.style.display = 'none';
+        const inputEl = document.getElementById('manualSignatureCode');
+        if (inputEl) inputEl.value = '';
+
+        // Generar URL de firma
+        const signUrl = `${window.location.origin}/firmar.html?token=${token}`;
+
+        // Mostrar QR en el MODAL (si estamos en el formulario) o en el resumen si existe
+        const modalQR = document.getElementById('signatureModalQRContainer');
+        if (modalQR) {
+            modalQR.innerHTML = '';
+            // El usuario prefiere solo código manual. Se elimina generación de QR.
+            /*
+            new QRCode(modalQR, {
+                text: signUrl,
+                width: 200,
+                height: 200,
+                correctLevel: QRCode.CorrectLevel.L
+            });
+            */
+        }
+        const modalOverlay = document.getElementById('modalSignatureOverlay');
+        if (modalOverlay) {
+            modalOverlay.classList.add('active');
+        }
+
+        // También intentar actualizar el contenedor en el resumen por si está abierto detrás
+        const qrContainer = document.getElementById('signatureQRContainer');
+        if (qrContainer) {
+            qrContainer.innerHTML = '';
+            // El usuario prefiere solo código manual. Se elimina generación de QR.
+            /*
+            new QRCode(qrContainer, {
+                text: signUrl,
+                width: 180,
+                height: 180,
+                correctLevel: QRCode.CorrectLevel.L
+            });
+            */
+            const step = document.getElementById('signatureStep');
+            if (step) step.style.display = 'block';
+            const btn = document.getElementById('btnPrepareSign');
+            if (btn) btn.style.display = 'none';
+        }
+        
+        // Iniciar WebSocket para esperar la firma
+        startSignatureWS(id);
+        
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', error.message, 'error');
+    }
+}
+
+export function closeModalSignature() {
+    document.getElementById('modalSignatureOverlay').classList.remove('active');
+}
+
+export async function cancelSignatureProcess() {
+    closeModalSignature();
+    currentSignToken = null;
+    currentSignEvalId = null;
+    // Simplemente recargamos el detalle para resetear la vista
+}
+
+export async function submitManualSignature(isSummary = false) {
+    const inputId = isSummary ? 'manualSignatureCodeSummary' : 'manualSignatureCode';
+    const errorId = isSummary ? null : 'manualSignError'; // El resumen no tiene p de error dedicado, usamos alert
+    
+    const codeInput = document.getElementById(inputId);
+    const code = codeInput ? codeInput.value.trim() : '';
+
+    if (!code || code.length !== 6) {
+        if (errorId) {
+            const errP = document.getElementById(errorId);
+            if (errP) {
+                errP.textContent = 'El código debe ser de 6 dígitos';
+                errP.style.display = 'block';
+            }
+        } else {
+            showAlert('Error', 'El código debe ser de 6 dígitos', 'warning');
+        }
+        return;
+    }
+
+    if (!currentSignToken) {
+        showAlert('Error', 'No hay un proceso de firma activo', 'error');
+        return;
+    }
+
+    try {
+        mostrarLoading(true, 'Verificando firma...');
+        await api.evaluaciones.publicSign({
+            token: currentSignToken,
+            code: code
+        });
+        
+        mostrarLoading(false);
+        // Ocultar error si existía
+        if (errorId) {
+            const errP = document.getElementById(errorId);
+            if (errP) errP.style.display = 'none';
+        }
+
+        showAlert('Éxito', 'Firma realizada correctamente y acompañamiento cerrado.', 'success');
+        
+        // Cerrar modal si estaba abierto
+        if (!isSummary) closeModalSignature();
+        
+        // REDIRECCIÓN: El usuario solicitó ir a la tabla de acompañamientos
+        window.app.navigateTo('evaluaciones');
+        // Resetear cache para ver el cambio
+        if (response.codigo_verificacion) {
+            // Mostrar modal de éxito con opción de enviar correo
+            showEmailSuccessModal(evalId, response.public_link, response.codigo_verificacion);
+            _allEvaluaciones = null;
+            loadEvaluaciones();
+        }
+
+    } catch (error) {
+        mostrarLoading(false);
+        const msg = error.response?.data?.detail || error.message || 'Error desconocido';
+        if (errorId) {
+            const errP = document.getElementById(errorId);
+            if (errP) {
+                errP.textContent = msg;
+                errP.style.display = 'block';
+            }
+        } else {
+            showAlert('Error', msg, 'error');
+        }
+    }
+}
+
+let signatureWS = null;
+function startSignatureWS(evalId) {
+    if (signatureWS) signatureWS.close();
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.port === '8080' ? 'localhost:8001' : window.location.host;
+    const wsUrl = `${protocol}//${host}/ws/evaluacion/${evalId}`;
+
+    signatureWS = new WebSocket(wsUrl);
+
+    signatureWS.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.event === 'DOCENTE_FIRMO') {
+            closeModalSignature();
+            // Mostrar modal de éxito con opción de enviar correo
+            showEmailSuccessModal(evalId, data.public_link, data.verificacion);
+            _allEvaluaciones = null;
+            loadEvaluaciones();
+            signatureWS.close();
+        }
+    };
+
+    signatureWS.onerror = (err) => console.error('WS Error:', err);
+}
+
+export async function finalizeEvaluation(id) {
+    if (!confirm('¿Desea cerrar definitivamente este acompañamiento? No podrá ser editado después.')) return;
+
+    try {
+        mostrarLoading(true, 'Cerrando acompañamiento...');
+        await api.evaluaciones.finalize(id);
+        _allEvaluaciones = null; // Clear cache for status update
+        mostrarLoading(false);
+        showAlert('¡Éxito!', 'El acompañamiento ha sido cerrado y el acta final está lista.', 'success');
+        verDetalle(id);
     } catch (error) {
         mostrarLoading(false);
         showAlert('Error', error.message, 'error');
@@ -549,7 +964,7 @@ export async function deleteEvaluacion(id) {
     if (!confirm('¿Está seguro de eliminar este acompañamiento?')) return;
     try {
         await api.evaluaciones.delete(id);
-        loadEvaluaciones();
+        loadEvaluaciones(true); // Force reload to clear cache and update table
     } catch (error) {
         showAlert('Error', error.message, 'error');
     }
@@ -578,8 +993,8 @@ export async function mostrarResumen(evaluacion) {
         .map(d => `<tr><td><strong>${d.label}:</strong></td><td><span class="badge ${getBadgeClass(evaluacion[d.key])}">${Number(evaluacion[d.key]).toFixed(2)}</span></td></tr>`)
         .join('');
 
-    const fortalezas = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo === 'fortaleza').map(f => f.contenido).join('; ') || '-';
-    const aspectos = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo === 'aspecto').map(f => f.contenido).join('; ') || '-';
+    const fortalezas = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo?.toLowerCase() === 'fortaleza').map(f => f.contenido).join('; ') || '-';
+    const aspectos = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo?.toLowerCase() === 'aspecto').map(f => f.contenido).join('; ') || '-';
 
     const dimsCards = dims
         .filter(d => evaluacion[d.key] != null)
@@ -657,36 +1072,164 @@ export async function mostrarResumen(evaluacion) {
             </div>
         </div>
 
-        <!-- Sección Observaciones -->
-        <div class="pdf-page-break" style="background: #fff; border-radius: 14px; padding: 28px 30px; box-shadow: 0 3px 12px rgba(0,0,0,0.06); border: 1px solid #e8edf3;">
+        <!-- Sección Firma Digital -->
+        <div id="signatureSection" style="margin-top: 24px; background: #fff; border-radius: 14px; padding: 28px 30px; box-shadow: 0 3px 12px rgba(0,0,0,0.06); border: 2px solid ${evaluacion.estado === 'CERRADA' ? '#28a745' : '#004080'};">
             <h3 style="margin: 0 0 20px; font-size: 1.1rem; color: #002b5e; display: flex; align-items: center; gap: 8px; padding-bottom: 14px; border-bottom: 2px solid #f0f4fa;">
-                <span style="background:#e8f0fe; padding: 6px 10px; border-radius: 8px;">📝</span> Observaciones Complementarias
+                <span style="background:#e8f0fe; padding: 6px 10px; border-radius: 8px;">🖋️</span> Estado de Firma y Cierre
             </h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 20px;">
+            
+            <div style="display: flex; align-items: start; gap: 30px;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <span style="font-size: 0.95rem; font-weight: 600; color: #6c757d;">Estado:</span>
+                        <span class="badge" style="background: ${
+                            evaluacion.estado === 'CERRADA' ? '#28a745' : 
+                            evaluacion.estado === 'FIRMADA_DOCENTE' ? '#007bff' : 
+                            evaluacion.estado === 'LISTO_PARA_FIRMA' ? '#ffc107' : '#6c757d'
+                        }; color: white; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 700;">
+                            ${evaluacion.estado || 'BORRADOR'}
+                        </span>
+                    </div>
+
+                    <div id="signatureStatusMsg" style="margin-bottom: 20px; color: #2c3e50; font-size: 0.95rem; line-height: 1.5;">
+                        ${
+                            evaluacion.estado === 'BORRADOR' ? 'El acompañamiento ha sido guardado como borrador. Debe solicitar la firma del docente para cerrarlo.' :
+                            evaluacion.estado === 'LISTO_PARA_FIRMA' ? 'Esperando firma del docente. Solicite el código de 6 dígitos.' :
+                            evaluacion.estado === 'FIRMADA_DOCENTE' ? `✅ El docente firmó el ${evaluacion.fecha_firma_docente ? new Date(evaluacion.fecha_firma_docente).toLocaleString() : 'fecha desconocida'}.` :
+                            `🛡️ <b>FIRMADA DIGITALMENTE VÍA GOOGLE AUTHENTICATOR</b><br>
+                             <span style="color: #28a745; font-weight: bold;">Código de Verificación: ${evaluacion.codigo_firma || '-'}</span><br>
+                             Este acompañamiento está cerrado y finalizado correctamente.`
+                        }
+                    </div>
+
+                    <div style="display: flex; gap: 15px;">
+                        ${evaluacion.estado === 'BORRADOR' ? `
+                            <button id="btnGuardarBorrador" type="button" class="btn" style="background: #ef8f11; color: white;" data-eval-id="${evaluacion.id}" onclick="window.app.guardarCambiosBorrador(${evaluacion.id})">💾 Guardar Cambios (Borrador)</button>
+                            <button id="btnPrepareSign" class="btn btn-primary" onclick="window.app.prepareSignature(${evaluacion.id})">✍️ Firma docente</button>
+                        ` : ''}
+
+                        ${evaluacion.estado === 'FIRMADA_DOCENTE' ? `
+                            <button class="btn btn-success" onclick="window.app.finalizeEvaluation(${evaluacion.id})">🔒 Cerrar Acompañamiento</button>
+                        ` : ''}
+
+                        ${evaluacion.estado === 'LISTO_PARA_FIRMA' ? `
+                            <button class="btn btn-danger btn-sm" onclick="window.app.verDetalle(${evaluacion.id})" style="padding: 5px 15px;">❌ Cancelar Proceso</button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div id="signatureStep" style="display: ${evaluacion.estado === 'LISTO_PARA_FIRMA' ? 'block' : 'none'}; text-align: center; background: #f0f7ff; padding: 20px; border-radius: 12px; border: 1px solid #cce5ff;">
+                    <p style="font-size: 0.9rem; color: #003366; margin-bottom: 12px; font-weight: 600;">Ingrese el código de 6 dígitos del docente:</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; align-items: center;">
+                        <input type="text" id="manualSignatureCodeSummary" placeholder="000000" maxlength="6" 
+                               style="width: 130px; text-align: center; font-size: 1.4rem; letter-spacing: 3px; padding: 8px; border: 2px solid #003366; border-radius: 8px; font-weight: bold; color: #003366;">
+                        <button type="button" class="btn btn-primary" onclick="window.app.submitManualSignature(true)" style="padding: 10px 15px;">✓ Firmar</button>
+                    </div>
+                </div>
+
+                ${evaluacion.estado === 'CERRADA' ? `
+                    <div style="text-align: center; color: #28a745; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <span style="font-size: 3rem;">🏅</span>
+                        <p style="margin: 0;">ACTA CERRADA</p>
+                        <button class="btn btn-outline-primary btn-sm" onclick="window.app.sendEmailAccompaniment(${evaluacion.id})" style="margin-top: 5px; border: 1px solid #007bff; color: #007bff; background: transparent; padding: 5px 15px; border-radius: 6px; cursor: pointer; font-weight: 600;">📧 Enviar por Correo</button>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
                 <div style="background: #f0faf0; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745;">
                     <h4 style="margin: 0 0 10px; color: #1e7e34; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">✅ Fortalezas</h4>
-                    <p style="margin: 0; font-size: 0.95rem; color: #2c4a2c; line-height: 1.7;">${fortalezas}</p>
+                    ${evaluacion.estado === 'BORRADOR' ? 
+                        `<textarea id="fortalezasBorrador" rows="4" style="width: 100%; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; font-size: 0.95rem; color: #2c4a2c; background: #fffbe6; line-height: 1.5; resize: vertical;" placeholder="Ingrese las fortalezas observadas...">${fortalezas === '-' ? '' : fortalezas}</textarea>` :
+                        `<p style="margin: 0; font-size: 0.95rem; color: #2c4a2c; line-height: 1.7;">${fortalezas}</p>`
+                    }
                 </div>
                 <div style="background: #fff8f8; padding: 20px; border-radius: 10px; border-left: 4px solid #dc3545;">
                     <h4 style="margin: 0 0 10px; color: #c0392b; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">⚡ Aspectos a Fortalecer</h4>
-                    <p style="margin: 0; font-size: 0.95rem; color: #4a2c2c; line-height: 1.7;">${aspectos}</p>
+                    ${evaluacion.estado === 'BORRADOR' ? 
+                        `<textarea id="aspectosBorrador" rows="4" style="width: 100%; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; font-size: 0.95rem; color: #4a2c2c; background: #fffbe6; line-height: 1.5; resize: vertical;" placeholder="Ingrese los aspectos a fortalecer...">${aspectos === '-' ? '' : aspectos}</textarea>` :
+                        `<p style="margin: 0; font-size: 0.95rem; color: #4a2c2c; line-height: 1.7;">${aspectos}</p>`
+                    }
+                </div>
+        </div>
+        <div style="background: #f8f9fc; padding: 25px; border-radius: 14px; border: 1px solid #e0e6ef; margin-top: 24px; box-shadow: 0 3px 10px rgba(0,0,0,0.03);">
+            <h4 style="margin: 0 0 15px; color: #002b5e; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                <span style="background:#e8f0fe; padding: 4px 8px; border-radius: 6px;">🧠</span> Retroalimentación Psicología Organizacional
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #edf2f7;">
+                    <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Fecha de Retroalimentación:</strong>
+                    <p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.fecha_retro || 'No programada'}</p>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 10px; border: 1px solid #edf2f7;">
+                    <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Modalidad:</strong>
+                    <p style="margin: 5px 0 0; color: #1e293b; font-weight: 600;">${evaluacion.modalidad_retro || '-'}</p>
                 </div>
             </div>
-            <div style="background: #f8f9fc; padding: 20px; border-radius: 10px; border: 1px solid #e0e6ef;">
-                <h4 style="margin: 0 0 10px; color: #495057; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">💬 Comentarios Generales</h4>
-                <p style="margin: 0; font-size: 0.98rem; color: #444; line-height: 1.7; font-style: ${evaluacion.comentarios ? 'normal' : 'italic'};">${evaluacion.comentarios || 'Sin comentarios registrados'}</p>
+            <div style="margin-bottom: 20px;">
+                <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Síntesis de la Retroalimentación:</strong>
+                ${evaluacion.estado === 'BORRADOR' ?
+                    `<textarea id="sintesisRetroBorrador" rows="4" style="width: 100%; margin-top: 8px; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; font-size: 0.95rem; color: #334155; line-height: 1.6; background: #fffbe6; resize: vertical;" placeholder="Ingrese la síntesis...">${evaluacion.sintesis_retro || ''}</textarea>` :
+                    `<p style="margin: 8px 0 0; color: #334155; line-height: 1.6; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">${evaluacion.sintesis_retro || 'Sin síntesis registrada'}</p>`
+                }
             </div>
+            <div>
+                <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Acuerdos de Mejora:</strong>
+                ${evaluacion.estado === 'BORRADOR' ?
+                    `<textarea id="acuerdosMejoraBorrador" rows="4" style="width: 100%; margin-top: 8px; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; font-size: 0.95rem; color: #334155; line-height: 1.6; background: #fffbe6; resize: vertical;" placeholder="Ingrese los acuerdos...">${evaluacion.acuerdos_mejora || ''}</textarea>` :
+                    `<p style="margin: 8px 0 0; color: #334155; line-height: 1.6; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">${evaluacion.acuerdos_mejora || 'Sin acuerdos registrados'}</p>`
+                }
+            </div>
+        </div>
+
+        <div style="background: #ffffff; padding: 25px; border-radius: 14px; border: 1px solid #e0e6ef; margin-top: 24px; box-shadow: 0 3px 10px rgba(0,0,0,0.03);">
+            <h4 style="margin: 0 0 10px; color: #002b5e; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                <span style="background:#fef3c7; padding: 4px 8px; border-radius: 6px;">💬</span> Comentarios para el Desarrollo
+            </h4>
+            ${evaluacion.estado === 'BORRADOR' ?
+                `<textarea id="comentariosBorrador" rows="4" style="width: 100%; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; font-size: 1rem; color: #334155; line-height: 1.7; background: #fffbe6; resize: vertical;" placeholder="Ingrese comentarios adicionales...">${evaluacion.comentarios || ''}</textarea>` :
+                `<p style="margin: 0; font-size: 1rem; color: #334155; line-height: 1.7; font-style: ${evaluacion.comentarios ? 'normal' : 'italic'};">${evaluacion.comentarios || 'Sin comentarios adicionales registrados'}</p>`
+            }
         </div>
     `;
 
     const container = document.getElementById('resumenPageContent');
     if (container) {
         container.innerHTML = html;
-        // Navegar a la página completa en lugar de usar el modal
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         const pageEl = document.getElementById('pageResumenEvaluacion');
         if (pageEl) pageEl.classList.add('active');
+
+        // Mostrar/Ocultar botón de re-envío en el header
+        const btnResend = document.getElementById('btnResendEmail');
+        if (btnResend) {
+            btnResend.style.display = evaluacion.estado === 'CERRADA' ? 'block' : 'none';
+        }
+
+        // Si está listo para firma, disparar la generación del QR (sin modal si ya está en la página)
+        if (evaluacion.estado === 'LISTO_PARA_FIRMA') {
+            // Un pequeño delay para asegurar que el DOM se actualizó
+            setTimeout(() => {
+                const qrContainer = document.getElementById('signatureQRContainer');
+                if (qrContainer && qrContainer.innerHTML === '') {
+                    // Solo generamos el QR si no existe, para no abrir el modal automáticamente al cargar el resumen
+                    // pero si el usuario explícitamente cliqueó en preparar, el modal se abre en prepareSignature
+                    api.evaluaciones.getSignToken(evaluacion.id).then(({token}) => {
+                        const signUrl = `${window.location.origin}/firmar.html?token=${token}`;
+                        // El usuario prefiere solo código manual
+                        /*
+                        new QRCode(qrContainer, { 
+                            text: signUrl, 
+                            width: 180, 
+                            height: 180,
+                            correctLevel: QRCode.CorrectLevel.L
+                        });
+                        */
+                        startSignatureWS(evaluacion.id);
+                    });
+                }
+            }, 100);
+        }
     }
 }
 
@@ -820,6 +1363,160 @@ export function descargarPDF() {
 }
 
 export function closeResumen() {
-    const el = document.getElementById('resumenEvaluacion');
+    const el = document.getElementById('pageResumenEvaluacion'); // Corrected from resumenEvaluacion to match dashboard approach
     if (el) el.classList.remove('active');
+}
+
+export async function sendEmailAccompaniment(id) {
+    try {
+        // 1. Mostrar loading
+        mostrarLoading(true, 'Enviando correo de notificación...');
+
+        // 2. Llamar al API (Ahora ya no enviamos PDF, el backend maneja todo)
+        const result = await api.evaluaciones.sendEmail(id);
+
+        mostrarLoading(false);
+        showAlert('¡Enviado!', `El acompañamiento ha sido enviado a: ${result.recipients.join(', ')}`, 'success');
+
+        // 3. Cerrar modal de éxito si estamos en uno
+        const modal = document.getElementById('modalOverlay');
+        if (modal && modal.classList.contains('active')) {
+            import('./ui.js').then(ui => ui.closeModal());
+        }
+    } catch (error) {
+        console.error('Error al enviar correo:', error);
+        mostrarLoading(false);
+        showAlert('Error', 'No se pudo enviar el correo: ' + error.message, 'error');
+    }
+}
+
+export function showEmailSuccessModal(evalId, publicLink, code) {
+    const body = `
+        <div style="text-align: center; padding: 10px;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">✅</div>
+            <h3 style="color: #28a745; margin-bottom: 10px;">¡Acompañamiento Firmado!</h3>
+            <p style="color: #555; margin-bottom: 20px;">El sistema ha generado el código: <b style="color: #004080;">${code}</b></p>
+            
+            <div style="background: #f0f7ff; padding: 20px; border-radius: 12px; border: 1px solid #cce5ff; margin-bottom: 20px; text-align: left;">
+                <p style="margin: 0 0 10px; font-weight: 600; color: #003366;">📤 ¿Desea enviar el acompañamiento al correo?</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="btn btn-primary" onclick="window.app.sendEmailWithSummary(${evalId})" style="width: 100%; padding: 12px; font-weight: 700;">📧 Enviar ahora por Correo</button>
+                    <button class="btn btn-outline-primary" onclick="window.app.copyShareLink('${publicLink}')" style="width: 100%; padding: 12px; border: 1px solid #004080; color: #004080; background: transparent; cursor: pointer; border-radius: 8px; font-weight: 600;">🔗 Copiar Enlace Público</button>
+                </div>
+            </div>
+            
+            <button class="btn btn-secondary" onclick="window.app.closeModal()" style="width: 100%; background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Finalizar</button>
+        </div>
+    `;
+    
+    import('./ui.js').then(ui => {
+        ui.showModal('Acompañamiento Finalizado', body);
+    });
+}
+
+export function copyShareLink(link) {
+    if (!link || link === 'undefined') {
+        showAlert('Error', 'El enlace no está disponible.', 'warning');
+        return;
+    }
+    navigator.clipboard.writeText(link).then(() => {
+        showAlert('Copiado', 'Enlace copiado al portapapeles.', 'success');
+    });
+}
+
+export async function sendEmailWithSummary(id) {
+    // Si el resumen está visible, lo usamos. Si no, lo cargamos.
+    const resumenPage = document.getElementById('pageResumenEvaluacion');
+    if (resumenPage && resumenPage.classList.contains('active')) {
+        await sendEmailAccompaniment(id);
+    } else {
+        await window.app.verDetalle(id);
+        // Esperamos un poco más para asegurar el renderizado completo
+        setTimeout(() => sendEmailAccompaniment(id), 1000);
+    }
+}
+
+export function showEmailResendModalFromHeader() {
+    const id = state.currentEvalId;
+    if (!id) {
+        showAlert('Error', 'No se ha seleccionado un acompañamiento.', 'warning');
+        return;
+    }
+    showEmailResendModal(id);
+}
+
+export async function showEmailResendModal(id) {
+    try {
+        mostrarLoading(true, 'Consultando destinatarios...');
+        
+        // 1. Obtener detalle de la evaluación (para correos de docente/observador)
+        const evaluacion = await api.evaluaciones.getById(id);
+        
+        // 2. Obtener destinatarios CCO configurados
+        const extraRecipients = await api.config.getEmailRecipients();
+        const activeBCC = extraRecipients.filter(r => r.activo);
+        
+        mostrarLoading(false);
+
+        const docenteEmail = evaluacion.docente?.email || 'Sin correo';
+        const observadorEmail = evaluacion.observador?.email || 'Sin correo';
+        const bccList = activeBCC.map(r => `<li>${r.nombre} (${r.email})</li>`).join('') || '<li>Sin destinatarios extra configurados</li>';
+
+        // Obtener la ruta base actual (ej: /frontend/ o /)
+        const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+        const publicLink = `${window.location.origin}${currentPath}ver-acta.html?c=${evaluacion.codigo_firma || ''}`;
+
+        const body = `
+            <div style="padding: 15px; background: #fff; border-radius: 12px;">
+                <div style="margin-bottom: 20px; color: #555; font-size: 0.95rem;">Confirme los detalles del envío:</div>
+                
+                <div style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; gap: 8px; align-items: baseline;">
+                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">Para:</span>
+                        <span style="color: #1e293b;">${evaluacion.docente?.nombre || 'Docente'} &lt;${docenteEmail}&gt;</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: baseline;">
+                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">De parte:</span>
+                        <span style="color: #1e293b;">${evaluacion.observador?.username || 'Administrador'} &lt;${observadorEmail}&gt;</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: baseline;">
+                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">CC:</span>
+                        <span style="color: #1e293b;">${observadorEmail}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">Link Público:</span>
+                        <a href="${publicLink}" target="_blank" style="color: #004080; text-decoration: underline; font-size: 0.85rem; word-break: break-all;">${publicLink}</a>
+                    </div>
+                    
+                    <details style="margin-top: 5px;">
+                        <summary style="cursor: pointer; color: #004080; font-weight: 600; font-size: 0.9rem; user-select: none;">
+                            👁️ Copia Oculta (CCO) - ${activeBCC.length} destinatarios
+                        </summary>
+                        <div style="margin-top: 8px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; color: #475569; max-height: 150px; overflow-y: auto;">
+                            ${activeBCC.length > 0 
+                                ? activeBCC.map(r => `<div>• ${r.email} <small>(${r.nombre || 'Sin nombre'})</small></div>`).join('') 
+                                : 'No hay destinatarios extra configurados.'}
+                        </div>
+                    </details>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #92400e; font-size: 0.9rem;">
+                    <strong>Información:</strong> Se adjuntará el acta de acompañamiento firmada en formato PDF.
+                </div>
+
+                <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="window.app.closeModal()" style="padding: 10px 20px;">Cancelar</button>
+                    <button class="btn btn-primary" onclick="window.app.sendEmailAccompaniment(${id})" style="background: #004080; border: none; padding: 10px 25px; font-weight: 600;">🚀 Enviar Acta</button>
+                </div>
+            </div>
+        `;
+
+        import('./ui.js').then(ui => {
+            ui.showGenericModal('Resumen de Envío por Correo', body);
+        });
+
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', 'No se pudieron cargar los destinatarios: ' + error.message, 'error');
+    }
 }

@@ -1,0 +1,49 @@
+        <!-- Página Inicio -->
+        <div id="pageInicio" class="page active">
+            <div class="page-header">
+                <h1>Dashboard</h1>
+                <div class="header-filters">
+                    <select id="filterColegioDashboard" class="form-select" onchange="loadDashboardStats()">
+                        <option value="all">Todos los Colegios</option>
+                    </select>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statTotal">0</span>
+                        <span class="stat-label">Total Acompañamientos</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statPromedio">0</span>
+                        <span class="stat-label">Promedio General</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👨‍🏫</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statDocentes">0</span>
+                        <span class="stat-label">Docentes Observados</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h3>Acciones Rápidas</h3>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">
+                        ➕ Nuevo Acompañamiento
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportExcel()">
+                        📊 Exportar Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="navigateTo('evaluaciones')">
+                        📋 Ver Acompañamientos
+                    </button>
+                </div>
+            </div>
+        </div>

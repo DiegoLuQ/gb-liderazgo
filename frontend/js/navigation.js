@@ -5,6 +5,7 @@ import { getRoleName, capitalize } from './utils.js';
 export async function loadUserInfo() {
     try {
         const user = await api.auth.getMe();
+        console.log('User info fetched:', user);
         setState('currentUser', user);
         
         const rolId = parseInt(user.rol_id);
@@ -39,8 +40,54 @@ export function setupNavigation() {
             e.preventDefault();
             const page = item.dataset.page;
             navigateTo(page);
+
+            // Cerrar sidebar en móvil tras navegar
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                const mobileBtn = document.getElementById('mobileMenuBtn');
+                
+                sidebar?.classList.remove('active');
+                overlay?.classList.remove('active');
+                mobileBtn?.classList.remove('active');
+            }
         });
     });
+
+    setupSidebarToggle();
+}
+
+function setupSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    // Desktop Toggle (Collapse)
+    toggleBtn?.addEventListener('click', () => {
+        sidebar?.classList.toggle('collapsed');
+        // Opcional: Guardar estado en localStorage
+        localStorage.setItem('sidebarCollapsed', sidebar?.classList.contains('collapsed'));
+    });
+
+    // Mobile Toggle (Slide-in)
+    mobileBtn?.addEventListener('click', () => {
+        sidebar?.classList.toggle('active');
+        overlay?.classList.toggle('active');
+        mobileBtn?.classList.toggle('active');
+    });
+
+    // Close on overlay click
+    overlay?.addEventListener('click', () => {
+        sidebar?.classList.remove('active');
+        overlay?.classList.remove('active');
+        mobileBtn?.classList.remove('active');
+    });
+
+    // Restaurar estado de colapso en escritorio
+    if (window.innerWidth > 768 && localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar?.classList.add('collapsed');
+    }
 }
 
 export async function navigateTo(page, skipEvent = false) {

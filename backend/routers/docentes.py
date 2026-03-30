@@ -27,26 +27,7 @@ def list_docentes(
         query = query.filter(Docente.colegio_id == colegio_id)
     
     docentes = query.order_by(Docente.nombre).all()
-    
-    result = []
-    for docente in docentes:
-        result.append({
-            "id": docente.id,
-            "nombre": docente.nombre,
-            "rut": docente.rut,
-            "email": docente.email,
-            "colegio_id": docente.colegio_id,
-            "created_by": docente.created_by,
-            "created_at": docente.created_at,
-            "colegio": {
-                "id": docente.colegio.id,
-                "nombre": docente.colegio.nombre,
-                "direccion": docente.colegio.direccion,
-                "created_by": docente.colegio.created_by,
-                "created_at": docente.colegio.created_at
-            } if docente.colegio else None
-        })
-    return result
+    return docentes
 
 
 @router.get("/{docente_id}", response_model=DocenteResponse)
@@ -59,22 +40,7 @@ def get_docente(
     if not docente:
         raise HTTPException(status_code=404, detail="Docente no encontrado")
     
-    return {
-        "id": docente.id,
-        "nombre": docente.nombre,
-        "rut": docente.rut,
-        "email": docente.email,
-        "colegio_id": docente.colegio_id,
-        "created_by": docente.created_by,
-        "created_at": docente.created_at,
-        "colegio": {
-            "id": docente.colegio.id,
-            "nombre": docente.colegio.nombre,
-            "direccion": docente.colegio.direccion,
-            "created_by": docente.colegio.created_by,
-            "created_at": docente.colegio.created_at
-        } if docente.colegio else None
-    }
+    return docente
 
 
 @router.post("/", response_model=DocenteResponse)
@@ -102,16 +68,7 @@ def create_docente(
         db.rollback()
         raise HTTPException(status_code=400, detail="El RUT ya existe en este colegio")
     
-    return {
-        "id": db_docente.id,
-        "nombre": db_docente.nombre,
-        "rut": db_docente.rut,
-        "email": db_docente.email,
-        "colegio_id": db_docente.colegio_id,
-        "created_by": db_docente.created_by,
-        "created_at": db_docente.created_at,
-        "colegio": None
-    }
+    return db_docente
 
 
 @router.put("/{docente_id}", response_model=DocenteResponse)
@@ -133,16 +90,7 @@ def update_docente(
     db.commit()
     db.refresh(docente)
     
-    return {
-        "id": docente.id,
-        "nombre": docente.nombre,
-        "rut": docente.rut,
-        "email": docente.email,
-        "colegio_id": docente.colegio_id,
-        "created_by": docente.created_by,
-        "created_at": docente.created_at,
-        "colegio": None
-    }
+    return docente
 
 
 @router.delete("/{docente_id}")

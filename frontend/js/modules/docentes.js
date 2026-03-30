@@ -9,11 +9,20 @@ export async function loadDocentes() {
     tbody.innerHTML = '<tr><td colspan="6">Cargando...</td></tr>';
 
     const filterColegio = document.getElementById('filterColegioDocentes')?.value;
+    const filterNombre = document.getElementById('filterNombreDocentes')?.value?.toLowerCase();
 
     try {
         let data = await api.docentes.getAll();
+        
+        // Aplicar filtros locales
         if (filterColegio) {
             data = data.filter(d => d.colegio_id === parseInt(filterColegio));
+        }
+        if (filterNombre) {
+            data = data.filter(d => 
+                (d.nombre || '').toLowerCase().includes(filterNombre) || 
+                (d.rut || '').toLowerCase().includes(filterNombre)
+            );
         }
 
         if (data.length === 0) {
@@ -23,15 +32,18 @@ export async function loadDocentes() {
 
         tbody.innerHTML = data.map(d => `
             <tr>
-                <td>${d.id}</td>
+                <td style="display:none;">${d.id}</td>
                 <td>${d.nombre}</td>
                 <td>${d.rut}</td>
                 <td>${d.email || '-'}</td>
                 <td>${d.colegio?.nombre || '-'}</td>
                 <td>
-                    <div class="actions">
-                        <button class="btn btn-warning btn-sm" onclick="window.app.editDocente(${d.id})">Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteDocente(${d.id})">Eliminar</button>
+                    <div class="actions" style="display: flex; gap: 8px; justify-content: center;">
+                        ${!d.has_totp ? `
+                            <button class="btn btn-primary btn-sm" onclick="window.app.setupTOTP(${d.id})" title="Configurar Firma Digital" style="padding: 5px 10px;">🔑</button>
+                        ` : '<span title="Firma Activa" style="font-size: 1.2em; cursor: default;">✅</span>'}
+                        <button class="btn btn-warning btn-sm" onclick="window.app.editDocente(${d.id})" title="Editar" style="padding: 5px 10px;">📝</button>
+                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteDocente(${d.id})" title="Eliminar" style="padding: 5px 10px;">🗑️</button>
                     </div>
                 </td>
             </tr>
@@ -170,4 +182,67 @@ export async function importarDocentesExcel(input) {
     } finally {
         input.value = '';
     }
+}
+
+// FIRMA DIGITAL (TOTP)
+export async function setupTOTP(docenteId) {
+    const d = state.docentes.find(doc => doc.id === docenteId);
+    if (!d) return;
+
+    try {
+        console.log('Setting up TOTP for docente:', docenteId);
+        mostrarLoading(true, 'Generando clave de firma...');
+        const res = await api.totp.setup(docenteId);
+        console.log('TOTP Setup response:', res);
+        mostrarLoading(false);
+
+        document.getElementById('totpDocenteNombre').textContent = d.nombre;
+        document.getElementById('totpDocenteRut').textContent = `RUT: ${d.rut}`;
+        document.getElementById('qrcodeContainer').innerHTML = '';
+        document.getElementById('totpVerifyCode').value = '';
+
+        // Generar QR
+        console.log('Generating QR Code...');
+        new QRCode(document.getElementById('qrcodeContainer'), {
+            text: res.provisioning_uri,
+            width: 200,
+            height: 200
+        });
+
+        console.log('Opening modal...');
+        document.getElementById('modalTotpOverlay').classList.add('active');
+
+        // Configurar botón de confirmación
+        const btn = document.getElementById('btnConfirmTotp');
+        btn.onclick = () => confirmTOTP(docenteId, res.secret);
+
+    } catch (error) {
+        console.error('Error in setupTOTP:', error);
+        mostrarLoading(false);
+        showAlert('Error', error.message, 'error');
+    }
+}
+
+export async function confirmTOTP(docenteId, secret) {
+    const code = document.getElementById('totpVerifyCode').value;
+    if (!code || code.length !== 6) {
+        showAlert('Código inválido', 'Ingrese el código de 6 dígitos de su app', 'warning');
+        return;
+    }
+
+    try {
+        mostrarLoading(true, 'Vinculando autenticador...');
+        await api.totp.confirm(docenteId, { secret, code });
+        mostrarLoading(false);
+        
+        closeModalTotp();
+        showAlert('¡Éxito!', 'La firma digital ha sido vinculada correctamente.', 'success');
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error de vinculación', error.message, 'error');
+    }
+}
+
+export function closeModalTotp() {
+    document.getElementById('modalTotpOverlay').classList.remove('active');
 }

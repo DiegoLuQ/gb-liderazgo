@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field, Field
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 
 
 class RolBase(BaseModel):
@@ -136,6 +136,11 @@ class DocenteResponse(DocenteBase):
     created_by: Optional[int]
     created_at: Optional[datetime]
     colegio: Optional[ColegioResponse] = None
+    totp_secret: Optional[str] = Field(None, exclude=True)
+    @computed_field
+    @property
+    def has_totp(self) -> bool:
+        return bool(self.totp_secret)
 
     class Config:
         from_attributes = True
@@ -231,9 +236,21 @@ class EvaluacionCreate(BaseModel):
     orientacion: str
     nivel_apoyo: str
     comentarios: Optional[str] = None
+    # Sección X
+    fecha_retro: Optional[date] = None
+    modalidad_retro: Optional[str] = None
+    sintesis_retro: Optional[str] = None
+    acuerdos_mejora: Optional[str] = None
     respuestas: List[RespuestaInput]
     apoyos: List[ApoyoInput]
     fortalezas_aspectos: List[FortalezaAspectoInput]
+
+
+class EvaluacionUpdate(BaseModel):
+    sintesis_retro: Optional[str] = None
+    acuerdos_mejora: Optional[str] = None
+    comentarios: Optional[str] = None
+    fortalezas_aspectos: Optional[List[FortalezaAspectoInput]] = None
 
 
 class EvaluacionRespuestaResponse(BaseModel):
@@ -281,6 +298,13 @@ class EvaluacionResponse(BaseModel):
     orientacion: str
     nivel_apoyo: str
     comentarios: Optional[str]
+    # Sección X
+    fecha_retro: Optional[date]
+    modalidad_retro: Optional[str]
+    sintesis_retro: Optional[str]
+    acuerdos_mejora: Optional[str]
+    estado: str
+    codigo_firma: Optional[str] = None
     fecha_guardado: Optional[datetime]
     docente: Optional[DocenteResponse] = None
     curso: Optional[CursoResponse] = None
@@ -298,7 +322,7 @@ class EvaluacionListResponse(BaseModel):
     id: int
     fecha: date
     promedio: float
-    func_grupo: str
+    func_grupo: Optional[str] = None
     docente_id: int
     docente_nombre: Optional[str] = None
     colegio_id: Optional[int] = None
@@ -306,6 +330,8 @@ class EvaluacionListResponse(BaseModel):
     curso_nombre: Optional[str] = None
     asignatura_nombre: Optional[str] = None
     observador_nombre: Optional[str] = None
+    estado: str
+    codigo_firma: Optional[str] = None
     fecha_guardado: Optional[datetime]
 
     class Config:

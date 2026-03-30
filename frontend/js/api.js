@@ -1,6 +1,6 @@
-const API_URL = window.location.port === '8080' || window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' 
+const API_URL = window.location.port === '8080' 
     ? '/api' 
-    : 'http://localhost:8001';
+    : `${window.location.protocol}//${window.location.hostname}:8001`;
 
 export const api = {
     getToken: () => localStorage.getItem('token'),
@@ -219,12 +219,25 @@ export const api = {
         },
         getById: (id) => api.request('GET', `/evaluaciones/${id}`),
         create(data) { return api.post('/evaluaciones/', data); },
+        update(id, data) { return api.put(`/evaluaciones/${id}`, data); },
         delete(id) { return api.delete(`/evaluaciones/${id}`); },
         exportExcel() {
             return fetch(`${API_URL}/evaluaciones/export/excel`, {
                 headers: { 'Authorization': `Bearer ${api.getToken()}` }
             });
+        },
+        prepareSign(id) { return api.post(`/evaluaciones/${id}/prepare-sign`); },
+        getSignToken(id) { return api.get(`/evaluaciones/${id}/sign-token`); },
+        publicSign(data) { return api.post('/evaluaciones/public-sign', data); },
+        finalize(id) { return api.post(`/evaluaciones/${id}/finalize`); },
+        sendEmail(id) {
+            return api.post(`/evaluaciones/${id}/send-email`, {});
         }
+    },
+    totp: {
+        setup(docenteId) { return api.get(`/totp/setup/${docenteId}`); },
+        confirm(docenteId, data) { return api.post(`/totp/confirm/${docenteId}`, data); },
+        getStatus(docenteId) { return api.get(`/totp/status/${docenteId}`); }
     },
     config: {
         backup: {
@@ -236,6 +249,9 @@ export const api = {
             email() {
                 return api.post('/config/backup/email');
             }
-        }
+        },
+        getEmailRecipients() { return api.get('/config/email-recipients'); },
+        createEmailRecipient(data) { return api.post('/config/email-recipients', data); },
+        deleteEmailRecipient(id) { return api.delete(`/config/email-recipients/${id}`); }
     }
 };

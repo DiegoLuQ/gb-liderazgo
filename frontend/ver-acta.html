@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acta de Acompañamiento - Liderazgo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #004080;
+            --secondary: #64748b;
+            --success: #10b981;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 60px 20px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,100,0.08);
+            position: relative;
+            overflow: hidden;
+            border-top: 6px solid var(--primary);
+        }
+
+        .watermark {
+            position: absolute;
+            top: 20px;
+            right: -30px;
+            transform: rotate(45deg);
+            opacity: 0.05;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--primary);
+            pointer-events: none;
+            background: var(--primary);
+            color: white;
+            padding: 5px 50px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .header h1 {
+            color: var(--primary);
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .header p { color: var(--text-muted); font-size: 1.1rem; }
+
+        .section { margin-bottom: 45px; }
+        .section-title {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+        }
+        .section-title::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, #e2e8f0, transparent);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 12px;
+        }
+        .info-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .info-item span {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 15px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        .results-table th {
+            text-align: left;
+            background: #003366;
+            padding: 15px;
+            font-size: 0.85rem;
+            color: white;
+            font-weight: 600;
+        }
+        .results-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 1rem;
+        }
+        .promedio-cell {
+            font-weight: 800;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .detail-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .detail-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .detail-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #334155;
+            white-space: pre-wrap;
+        }
+
+        .badge-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .summary-card {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+        .card h4 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .card p {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        .signature-box {
+            margin-top: 60px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #bae6fd;
+            padding: 40px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+        .signature-icon { 
+            font-size: 3rem;
+            background: white;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.05);
+        }
+        .signature-text h4 { color: #003366; font-size: 1.25rem; margin-bottom: 8px; font-weight: 800; }
+        .signature-text p { font-size: 0.95rem; color: #475569; line-height: 1.4; }
+        .signature-code {
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            background: #fff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid #bae6fd;
+            color: var(--success);
+            font-weight: 800;
+            display: inline-block;
+            font-size: 1.1rem;
+        }
+
+        @media print {
+            body { background: #fff; padding: 0; }
+            .container { box-shadow: none; padding: 0; border: none; max-width: 100%; }
+            .signature-box { page-break-inside: avoid; }
+        }
+
+        #loading { text-align: center; padding: 100px; font-size: 1.5rem; font-weight: 600; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div id="loading">✨ Verificando Acta Oficial...</div>
+
+<div id="content" class="container" style="display:none;">
+    <div class="watermark">OFICIAL</div>
+    
+    <div class="header">
+        <h1>Acta de Acompañamiento</h1>
+        <p id="evaluacionId">ID: Loading...</p>
+    </div>
+
+    <!-- I. Datos Generales -->
+    <div class="section">
+        <h2 class="section-title"><span>I.</span> Datos Generales</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Colegio</label>
+                <span id="colegio">-</span>
+            </div>
+            <div class="info-item">
+                <label>Docente</label>
+                <span id="docente">-</span>
+            </div>
+            <div class="info-item">
+                <label>RUT</label>
+                <span id="docenteRut">-</span>
+            </div>
+            <div class="info-item">
+                <label>Nivel y Curso</label>
+                <span id="curso">-</span>
+            </div>
+            <div class="info-item">
+                <label>Asignatura</label>
+                <span id="asignatura">-</span>
+            </div>
+            <div class="info-item">
+                <label>Fecha</label>
+                <span id="fecha">-</span>
+            </div>
+            <div class="info-item">
+                <label>Duración</label>
+                <span id="duracion">-</span>
+            </div>
+            <div class="info-item">
+                <label>Observador</label>
+                <span id="observador">-</span>
+            </div>
+            <div class="info-item">
+                <label>Estado</label>
+                <span id="estadoLabel" style="color: var(--success);">FINALIZADO</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- II. Resultados Cuantitativos -->
+    <div class="section">
+        <h2 class="section-title"><span>II.</span> Resultados de Liderazgo</h2>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Dimensión de Liderazgo</th>
+                    <th style="width: 120px; text-align: center;">Resultado</th>
+                </tr>
+            </thead>
+            <tbody id="dimensionesTable"></tbody>
+        </table>
+
+        <div class="summary-card">
+            <div class="card">
+                <h4>Funcionamiento del Grupo</h4>
+                <p id="funcGrupo">-</p>
+            </div>
+            <div class="card">
+                <h4>Nivel de Liderazgo</h4>
+                <p id="nivelLiderazgo">-</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- III. Observaciones de la Clase -->
+    <div class="section">
+        <h2 class="section-title"><span>III.</span> Observaciones de la Clase</h2>
+        <div class="detail-box">
+            <span class="detail-label">Fortalezas Observadas:</span>
+            <p id="fortalezasText" class="detail-content">No registradas</p>
+        </div>
+        <div class="detail-box">
+            <span class="detail-label">Aspectos a Fortalecer:</span>
+            <p id="aspectosText" class="detail-content">No registrados</p>
+        </div>
+    </div>
+
+    <!-- IV. Orientación y Apoyos -->
+    <div class="section">
+        <h2 class="section-title"><span>IV.</span> Orientación y Desarrollo</h2>
+        <div class="summary-card">
+            <div class="card">
+                <h4>Orientación para el Desarrollo</h4>
+                <p id="orientacion">-</p>
+            </div>
+            <div class="card" style="border-left-color: #0ea5e9;">
+                <h4>Nivel de Apoyo Requerido</h4>
+                <p id="nivelApoyo">-</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 25px;">
+            <label class="detail-label">Tipos de Apoyo Sugeridos:</label>
+            <div id="apoyosList" class="badge-list"></div>
+        </div>
+    </div>
+
+    <!-- V. Retroalimentación Psicología Organizacional -->
+    <div class="section">
+        <h2 class="section-title"><span>V.</span> Retroalimentación PO</h2>
+        <div class="info-grid" style="margin-bottom: 20px;">
+            <div class="info-item">
+                <label>Fecha de Retroalimentación</label>
+                <span id="fechaRetro">-</span>
+            </div>
+            <div class="info-item" style="grid-column: span 2;">
+                <label>Modalidad</label>
+                <span id="modalidadRetro">-</span>
+            </div>
+        </div>
+        <div class="detail-box">
+            <span class="detail-label">Síntesis de la Retroalimentación:</span>
+            <p id="sintesis" class="detail-content">-</p>
+        </div>
+        <div class="detail-box">
+            <span class="detail-label">Sugerencias y Acuerdos de Mejora:</span>
+            <p id="acuerdos" class="detail-content">-</p>
+        </div>
+    </div>
+
+    <!-- VI. Comentarios Adicionales -->
+    <div class="section" id="comentariosSection" style="display:none;">
+        <h2 class="section-title"><span>VI.</span> Comentarios para el Desarrollo</h2>
+        <div class="detail-box" style="background: #fffdf0; border-color: #fef08a;">
+            <p id="comentarios" class="detail-content">-</p>
+        </div>
+    </div>
+
+    <div class="signature-box" id="validSignature">
+        <div class="signature-icon">🛡️</div>
+        <div class="signature-text">
+            <h4>Documento Autenticado</h4>
+            <p>Este informe ha sido validado mediante firma digital y el sello de integridad del Sistema de Gestión de Liderazgo. Los datos aquí presentados son inalterables.</p>
+            <div class="signature-code" id="codigoFirma">VERIFICACIÓN: -</div>
+            <p style="margin-top: 10px; font-size: 0.8rem; font-weight: 600;">Firmado digitalmente el: <span id="fechaFirma">-</span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = window.location.port === '8080' 
+        ? '/api' 
+        : `${window.location.protocol}//${window.location.hostname}:8001`;
+
+    async function loadActa() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('c');
+
+        if (!code) {
+            document.getElementById('loading').innerHTML = '<div style="background:#fee2e2; color:#b91c1c; padding:30px; border-radius:12px; border:1px solid #fecaca;">' +
+                '<h2 style="margin-bottom:10px;">Acceso Denegado</h2>' +
+                '<p>No se ha proporcionado un código de acceso válido.</p></div>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/evaluaciones/public/ver/${code}`);
+            if (!response.ok) {
+                if(response.status === 403) throw new Error('El acompañamiento aún no ha sido finalizado.');
+                throw new Error('No se encontró el acompañamiento solicitado.');
+            }
+            
+            const data = await response.json();
+            renderData(data);
+        } catch (error) {
+            document.getElementById('loading').innerHTML = `<div style="background:#fee2e2; color:#b91c1c; padding:30px; border-radius:12px; border:1px solid #fecaca;">` +
+                `<h2 style="margin-bottom:10px;">Error</h2>` +
+                `<p>${error.message}</p></div>`;
+        }
+    }
+
+    function renderData(e) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+        // Header e ID
+        document.getElementById('evaluacionId').textContent = `Certificado de Integridad #${e.id}`;
+        
+        // I. Datos Generales
+        document.getElementById('colegio').textContent = e.docente?.colegio?.nombre || '-';
+        document.getElementById('docente').textContent = e.docente?.nombre || '-';
+        document.getElementById('docenteRut').textContent = e.docente?.rut || '-';
+        document.getElementById('curso').textContent = `${e.curso?.nivel?.nombre || ''} ${e.curso?.letra || ''}`;
+        document.getElementById('asignatura').textContent = e.asignatura?.nombre || '-';
+        document.getElementById('fecha').textContent = formatDate(e.fecha, false);
+        document.getElementById('duracion').textContent = e.duracion || '-';
+        document.getElementById('observador').textContent = e.observador?.username || '-';
+
+        // II. Resultados
+        document.getElementById('funcGrupo').textContent = e.func_grupo || '-';
+        document.getElementById('nivelLiderazgo').textContent = interpretarLiderazgo(e.promedio);
+
+        const table = document.getElementById('dimensionesTable');
+        const dimNames = [
+            'Gestión Curricular',
+            'Enseñanza y Aprendizaje en el Aula',
+            'Apoyo al Desarrollo de los Estudiantes',
+            'Liderazgo del Director',
+            'Gestión de la Convivencia Escolar'
+        ];
+
+        const dims = [
+            { label: dimNames[0], val: e.promedio_dim1 },
+            { label: dimNames[1], val: e.promedio_dim2 },
+            { label: dimNames[2], val: e.promedio_dim3 },
+            { label: dimNames[3], val: e.promedio_dim4 },
+            { label: dimNames[4], val: e.promedio_dim5 }
+        ];
+
+        table.innerHTML = '';
+        dims.forEach(d => {
+            if (d.val !== null && d.val !== undefined) {
+                const row = `<tr><td>${d.label}</td><td class="promedio-cell">${d.val.toFixed(2)}</td></tr>`;
+                table.innerHTML += row;
+            }
+        });
+        
+        table.innerHTML += `<tr style="background:#003366; color:white; font-weight:800;">` +
+            `<td style="border-radius: 0 0 0 12px;">PROMEDIO TOTAL LIDERAZGO</td>` +
+            `<td class="promedio-cell" style="color:white; font-size:1.4rem; border-radius: 0 0 12px 0;">${e.promedio?.toFixed(2) || '0.00'}</td></tr>`;
+
+        // III. Observaciones
+        const fortalezas = e.fortalezas_aspectos?.filter(f => f.tipo?.toLowerCase() === 'fortaleza').map(f => f.contenido).join('\n\n');
+        const aspectos = e.fortalezas_aspectos?.filter(f => f.tipo?.toLowerCase() === 'aspecto').map(f => f.contenido).join('\n\n');
+        document.getElementById('fortalezasText').textContent = fortalezas || 'No se registraron fortalezas específicas.';
+        document.getElementById('aspectosText').textContent = aspectos || 'No se registraron aspectos a fortalecer específicos.';
+
+        // IV. Orientación
+        document.getElementById('orientacion').textContent = e.orientacion || '-';
+        document.getElementById('nivelApoyo').textContent = e.nivel_apoyo || '-';
+        
+        const apoyosContainer = document.getElementById('apoyosList');
+        apoyosContainer.innerHTML = '';
+        if (e.apoyos && e.apoyos.length > 0) {
+            e.apoyos.forEach(a => {
+                apoyosContainer.innerHTML += `<span class="badge">${a.apoyo}</span>`;
+            });
+        } else {
+            apoyosContainer.innerHTML = '<span style="color:#94a3b8; font-style:italic;">No se sugirieron apoyos adicionales</span>';
+        }
+
+        // V. Retroalimentación
+        document.getElementById('fechaRetro').textContent = e.fecha_retro ? formatDate(e.fecha_retro, false) : 'Pendiente';
+        document.getElementById('modalidadRetro').textContent = e.modalidad_retro || 'No especificada';
+        document.getElementById('sintesis').textContent = e.sintesis_retro || 'Sin síntesis registrada';
+        document.getElementById('acuerdos').textContent = e.acuerdos_mejora || 'Sin acuerdos registrados';
+
+        // VI. Comentarios
+        if (e.comentarios) {
+            document.getElementById('comentariosSection').style.display = 'block';
+            document.getElementById('comentarios').textContent = e.comentarios;
+        }
+
+        // Firma
+        document.getElementById('codigoFirma').textContent = `AUTENTICACIÓN: ${e.codigo_firma}`;
+        document.getElementById('fechaFirma').textContent = formatDate(e.fecha_firma_docente, true);
+    }
+
+    function interpretarLiderazgo(promedio) {
+        if (!promedio) return '-';
+        if (promedio >= 4.0) return 'Liderazgo Consolidado';
+        if (promedio >= 3.0) return 'Liderazgo Adecuado';
+        if (promedio >= 2.0) return 'Liderazgo en Desarrollo';
+        return 'Liderazgo Bajo';
+    }
+
+    function formatDate(dateStr, showTime) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
+        if (showTime) {
+            options.hour = '2-digit';
+            options.minute = '2-digit';
+        }
+        return date.toLocaleDateString('es-CL', options);
+    }
+
+    loadActa();
+</script>
+</body>
+</html>
