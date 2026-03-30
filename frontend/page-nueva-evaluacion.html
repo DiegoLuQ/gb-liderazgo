@@ -14,9 +14,25 @@
             <form id="evaluacionForm" class="evaluation-form">
                 <div id="signatureInfoForm" style="display:none; margin-bottom: 20px;"></div>
                 
-                <!-- Sección I: Datos del Acompañamiento -->
+                <!-- I. Objetivo -->
+                <section class="form-section highlight-objective" style="background: #f0f7ff; border-left: 5px solid #004080; padding: 25px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,64,128,0.05);">
+                    <h3 style="color: #004080; border-bottom: 2px solid #004080; padding-bottom: 10px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px;">I. Objetivo</h3>
+                    <div style="color: #1e293b; line-height: 1.8; font-size: 1rem;">
+                        <p style="margin-bottom: 15px;">
+                            Observar indicadores de liderazgo del docente en el aula, considerando aspectos de comunicación, presencia, coherencia, organización y conducción del grupo.
+                        </p>
+                        <p style="margin-bottom: 15px; font-weight: 700; color: #003366; background: #e0f2fe; padding: 12px 15px; border-radius: 8px;">
+                            📌 Esta pauta no evalúa aspectos pedagógicos, sino comportamientos de liderazgo del docente en la conducción del grupo.
+                        </p>
+                        <p style="margin-bottom: 0;">
+                            Esta observación forma parte de un proceso de acompañamiento desde Psicología Organizacional e incluye una instancia de retroalimentación orientada al desarrollo del liderazgo docente.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- II. Datos del Acompañamiento -->
                 <section class="form-section">
-                    <h3>I. Datos del Acompañamiento</h3>
+                    <h3>II. Datos del Acompañamiento</h3>
                     <div class="form-grid-3">
                         <div class="form-group">
                             <label for="colegioSelect">Colegio *</label>
@@ -67,7 +83,7 @@
 
                 <!-- Sección II: Escala de Evaluación -->
                 <section class="form-section">
-                    <h3>II. Escala de Evaluación y Descriptores</h3>
+                    <h3>III. Escala de Evaluación y Descriptores</h3>
                     <div class="evaluation-scale-container" style="display: flex; justify-content: center; margin-bottom: 30px;">
                         <table class="evaluation-scale-table" style="border-collapse: collapse; width: 90%; max-width: 800px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                             <thead>
@@ -104,7 +120,7 @@
 
                 <!-- Sección III: Indicadores de Liderazgo -->
                 <section class="form-section">
-                    <h3>III. Indicadores de Liderazgo Observados</h3>
+                    <h3>IV. Indicadores de Liderazgo Observados</h3>
                     <div id="rubricContainer">
                         <p class="text-center">Cargando indicadores...</p>
                     </div>
@@ -113,7 +129,7 @@
                 <section class="form-section">
                     <!-- Sección IV: Observaciones -->
                     <div class="inner-section">
-                        <h3>IV. Observaciones de la Clase</h3>
+                        <h3>V. Observaciones de la Clase</h3>
                         <div class="form-group">
                             <label for="fortalezas">Fortalezas observadas</label>
                             <textarea id="fortalezas" rows="3"
@@ -130,7 +146,7 @@
                 <section class="form-section">
                     <!-- Sección V: Evaluación Global -->
                     <div class="inner-section">
-                        <h3>V. Evaluación Global del Liderazgo Observado</h3>
+                        <h3>VI. Evaluación Global del Liderazgo Observado</h3>
                         
                         <div class="result-box" style="margin-bottom: 20px;">
                             <div class="result-main">
@@ -177,7 +193,7 @@
                 <section class="form-section">
                     <!-- Sección VI: Funcionamiento del Grupo -->
                     <div id="seccionFuncionamiento" class="inner-section">
-                        <h3>VI. Funcionamiento del Grupo Durante la Clase</h3>
+                        <h3>VII. Funcionamiento del Grupo Durante la Clase</h3>
                         <p style="margin-bottom: 20px; color: #666; font-style: italic;">Evalúa el funcionamiento del grupo como sistema durante la clase, considerando dinámica, organización y disposición al trabajo.</p>
                         
                         <div style="overflow-x: auto;">
@@ -234,7 +250,7 @@
                 <section class="form-section agrupacion-final">
                     <!-- Sección VII: Orientación para el Desarrollo -->
                     <div class="inner-section">
-                        <h3>VII. Orientación para el Desarrollo</h3>
+                        <h3>VIII. Orientación para el Desarrollo</h3>
                         <div class="radio-group-vertical">
                             <label class="radio-option">
                                 <input type="radio" name="orientacion" value="Docente referente" required>
@@ -265,7 +281,7 @@
 
                     <!-- Sección VIII: Orientación de Desarrollo Docente (Nivel de Apoyo) -->
                     <div class="inner-section">
-                        <h3>VIII. Orientación de Desarrollo Docente</h3>
+                        <h3>IX. Orientación de Desarrollo Docente</h3>
                         <p class="info-text">De acuerdo con la observación realizada, indique el nivel de apoyo o
                             acompañamiento que podría requerir el docente.</p>
 
@@ -304,7 +320,7 @@
 
                     <!-- Sección IX: Tipo de Apoyo Sugerido -->
                     <div class="inner-section">
-                        <h3>IX. Tipo de Apoyo Sugerido</h3>
+                        <h3>X. Tipo de Apoyo Sugerido</h3>
                         <div class="checkbox-group">
                             <label><input type="checkbox" class="tipoApoyo" value="Retroalimentación"> Retroalimentación
                                 posterior a la observación</label>
@@ -321,7 +337,7 @@
 
                     <!-- Sección X: Retroalimentación desde Psicología Organizacional -->
                     <div class="inner-section">
-                        <h3>X. Retroalimentación desde Psicología Organizacional</h3>
+                        <h3>XI. Retroalimentación desde Psicología Organizacional</h3>
                         <p style="background: #f8f9fa; padding: 15px; border-left: 4px solid #003366; color: #555; margin-bottom: 20px;">
                             Esta observación forma parte de un proceso de acompañamiento desde Psicología Organizacional. Posteriormente, se realizará una instancia de retroalimentación orientada a fortalecer el liderazgo docente en el aula, identificando fortalezas y oportunidades de desarrollo.
                         </p>
@@ -354,7 +370,7 @@
 
                     <!-- Sección XI: Comentarios para el Desarrollo -->
                     <div class="inner-section section-comentarios">
-                        <h3>XI. Comentarios para el Desarrollo</h3>
+                        <h3>XII. Comentarios para el Desarrollo</h3>
                         <div class="form-group">
                             <textarea id="comentarios" rows="4"
                                 placeholder="Ingrese comentarios adicionales para el desarrollo del docente..."></textarea>
