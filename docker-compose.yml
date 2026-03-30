@@ -6,6 +6,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mcdp_backend
+    ports:
+      - "${BACKEND_PORT}:8000"
     networks:
       - base_red_pme
     env_file:
