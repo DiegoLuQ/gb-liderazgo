@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:8001';
+const API_URL = (window.location.port === '8080' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'))
+    ? '/api'
+    : `${window.location.protocol}//${window.location.hostname}:8001`;
 
 const rubricData = [
     {
