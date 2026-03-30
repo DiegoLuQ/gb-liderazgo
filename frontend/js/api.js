@@ -1,6 +1,6 @@
 const API_URL = (window.location.port === '8080' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) 
     ? '/api' 
-    : `${window.location.protocol}//${window.location.hostname}:8000`;
+    : `${window.location.protocol}//${window.location.hostname}:8002`;
 
 export const api = {
     getToken: () => localStorage.getItem('token'),
