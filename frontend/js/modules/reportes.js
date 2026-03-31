@@ -78,9 +78,34 @@ export async function actualizarReportes() {
         
         if (dimensionesCache.length === 0) dimensionesCache = dimensiones;
         
+        // 1. KPIs Básicos
         document.getElementById('repStatTotal').textContent = stats.total_evaluaciones;
         document.getElementById('repStatPromedio').textContent = stats.promedio_global.toFixed(2);
+
+        // 2. Cálculo de Mejor y Menor Dimensión
+        if (stats.promedios_dimensiones && stats.promedios_dimensiones.length > 0) {
+            const dimsWithNames = stats.promedios_dimensiones.map((val, idx) => ({
+                nombre: dimensiones[idx]?.nombre || `Dimensión ${idx + 1}`,
+                valor: val
+            })).filter(d => d.valor > 0);
+
+            if (dimsWithNames.length > 0) {
+                const sorted = [...dimsWithNames].sort((a, b) => b.valor - a.valor);
+                const strongDim = sorted[0];
+                const weakDim = sorted[sorted.length - 1];
+
+                const strongEl = document.getElementById('repStatStrong');
+                const weakEl = document.getElementById('repStatWeak');
+
+                if (strongEl) strongEl.textContent = `${strongDim.nombre} (${strongDim.valor.toFixed(2)})`;
+                if (weakEl) weakEl.textContent = `${weakDim.nombre} (${weakDim.valor.toFixed(2)})`;
+            } else {
+                if (document.getElementById('repStatStrong')) document.getElementById('repStatStrong').textContent = '-';
+                if (document.getElementById('repStatWeak')) document.getElementById('repStatWeak').textContent = '-';
+            }
+        }
         
+        // 3. Renderizado de Gráficos
         renderDocentesNivelesChart(stats.distribucion_func_grupo);
         renderNivelesChart(stats.distribucion_niveles);
         renderMensualChart(stats.por_mes);
@@ -326,33 +351,29 @@ function renderCursosChart(data) {
             }]
         },
         options: {
+            indexAxis: 'y', // Convertir a horizontal
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 datalabels: {
                     anchor: 'end',
-                    align: 'start',
+                    align: 'end',
                     offset: 5,
                     formatter: (value) => value.toFixed(2),
                     font: { weight: 'bold', size: 12 },
-                    color: '#fff',
-                    textShadowColor: 'rgba(0,0,0,0.5)',
-                    textShadowBlur: 3
+                    color: '#334155'
                 }
             },
             scales: {
-                y: { 
+                x: { 
                     beginAtZero: true, 
                     max: 5,
                     ticks: { stepSize: 1 }
                 },
-                x: {
+                y: {
                     ticks: {
-                        autoSkip: false,
-                        maxRotation: 45,
-                        minRotation: 0,
-                        font: { size: 10 }
+                        font: { size: 11, weight: '600' }
                     }
                 }
             }
@@ -383,10 +404,18 @@ function renderDocentesDimensionesCharts(data, dimensiones) {
     for (let i = 0; i < 5; i++) {
         const charId = `chartDocenteDim${i+1}`;
         const titleId = `titleDim${i+1}`;
-        const ctx = document.getElementById(charId).getContext('2d');
+        const canvas = document.getElementById(charId);
+        if (!canvas) continue;
+
+        const ctx = canvas.getContext('2d');
         const chartKey = `docenteDim${i+1}`;
 
         if (charts[chartKey]) charts[chartKey].destroy();
+
+        // Ajustar altura dinámica del contenedor basado en cantidad de docentes para que no se vea apretado
+        const minHeightPerRow = 35;
+        const totalHeight = Math.max(300, docentes.length * minHeightPerRow);
+        canvas.parentElement.style.height = `${totalHeight}px`;
 
         // Actualizar título
         const titleEl = document.getElementById(titleId);
@@ -408,29 +437,25 @@ function renderDocentesDimensionesCharts(data, dimensiones) {
                 }]
             },
             options: {
+                indexAxis: 'y', // Horizontal
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
                     datalabels: {
                         anchor: 'end',
-                        align: 'start',
-                        offset: 2,
+                        align: 'end',
+                        offset: 4,
                         formatter: (value) => value > 0 ? value.toFixed(2) : '0',
-                        font: { size: 10, weight: 'bold' },
-                        color: '#fff',
-                        textShadowColor: 'rgba(0,0,0,0.5)',
-                        textShadowBlur: 3
+                        font: { size: 11, weight: 'bold' },
+                        color: '#334155'
                     }
                 },
                 scales: {
-                    y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } },
-                    x: {
+                    x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } },
+                    y: {
                         ticks: {
-                            autoSkip: false,
-                            maxRotation: 45,
-                            minRotation: 45,
-                            font: { size: 10 }
+                            font: { size: 11, weight: '600' }
                         }
                     }
                 }
