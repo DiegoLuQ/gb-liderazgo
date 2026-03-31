@@ -3,6 +3,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import io
+import os
 from datetime import datetime
 from database import get_db, engine
 from auth import get_current_user, require_admin
@@ -12,6 +13,12 @@ from utils.db_utils import generate_sql_dump
 from utils.mailer import send_email_with_attachment
 
 router = APIRouter(prefix="/config", tags=["config"])
+
+@router.get("/info")
+def get_config_info():
+    return {
+        "BASE_URL": os.getenv("BASE_URL", "http://127.0.0.1:5500/frontend")
+    }
 
 @router.get("/backup/sql")
 async def get_backup_sql(
@@ -51,13 +58,27 @@ async def send_backup_email(
 # CRUD para destinatarios de correo adicionales
 @router.get("/email-recipients")
 def get_email_recipients(db: Session = Depends(get_db), admin_user = Depends(require_admin)):
-    return db.query(EmailRecipient).all()
+    from models import Colegio
+    recipients = db.query(EmailRecipient).outerjoin(Colegio).all()
+    # Mapear para incluir el nombre del colegio
+    result = []
+    for r in recipients:
+        result.append({
+            "id": r.id,
+            "email": r.email,
+            "nombre": r.nombre,
+            "colegio_id": r.colegio_id,
+            "colegio_nombre": r.colegio.nombre if r.colegio else "Todos los colegios",
+            "activo": r.activo
+        })
+    return result
 
 @router.post("/email-recipients")
 def create_email_recipient(data: dict, db: Session = Depends(get_db), admin_user = Depends(require_admin)):
     new_recipient = EmailRecipient(
         email=data.get("email"),
         nombre=data.get("nombre"),
+        colegio_id=data.get("colegio_id") if data.get("colegio_id") else None,
         activo=data.get("activo", True)
     )
     db.add(new_recipient)

@@ -204,11 +204,17 @@ async def import_docentes_excel(
                     errors.append(f"Fila {index+2}: Colegio ID {colegio_id} no encontrado")
                     continue
 
+                # Validar email (ahora obligatorio)
+                email = str(row["Email"]) if pd.notna(row["Email"]) else None
+                if not email:
+                    errors.append(f"Fila {index+2}: El Email es obligatorio")
+                    continue
+
                 # Crear docente
                 db_docente = Docente(
                     nombre=str(row["Nombre"]),
                     rut=str(row["RUT"]),
-                    email=str(row["Email"]) if pd.notna(row["Email"]) else None,
+                    email=email,
                     colegio_id=colegio_id,
                     created_by=current_user.id
                 )

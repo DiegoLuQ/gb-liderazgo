@@ -240,6 +240,7 @@ export const api = {
         getStatus(docenteId) { return api.get(`/totp/status/${docenteId}`); }
     },
     config: {
+        getInfo: () => fetch(`${API_URL}/config/info`, { headers: api.headers() }).then(r => r.json()),
         backup: {
             sql() {
                 return fetch(`${API_URL}/config/backup/sql`, {

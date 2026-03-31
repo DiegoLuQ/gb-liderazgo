@@ -78,9 +78,17 @@ export async function saveDocente(id) {
     const email = document.getElementById('modalEmail').value;
     const colegio_id = parseInt(document.getElementById('modalColegio').value);
 
-    if (!nombre || !rut || !colegio_id) { 
+    // Validación de campos obligatorios
+    if (!nombre || !rut || !email || !colegio_id) { 
         showAlert('Campos requeridos', 'Por favor complete todos los campos obligatorios (*)', 'warning'); 
         return; 
+    }
+
+    // Validación de formato RUT: 12345678-9
+    const rutRegex = /^[0-9]+-[0-9kK]{1}$/;
+    if (!rutRegex.test(rut)) {
+        showAlert('Formato RUT inválido', 'El RUT debe tener el formato 12345678-9 (sin puntos y con guión)', 'warning');
+        return;
     }
 
     try {

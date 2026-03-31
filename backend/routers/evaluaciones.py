@@ -17,7 +17,7 @@ from utils.email import send_evaluation_email
 from jose import jwt, JWTError
 import os
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8080")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 
 router = APIRouter(prefix="/evaluaciones", tags=["Evaluaciones"])
 
@@ -874,7 +874,7 @@ async def public_sign(
         
         # Generar link para que el observador comparta (reusamos el token de acceso si existe o pasamos el ID)
         # En este sistema, el link de firma (firmar.html?token=...) sirve para ver el estado también
-        public_link = f"{FRONTEND_URL}/firmar.html?token={token or ''}" # El token viene del request
+        public_link = f"{BASE_URL}/firmar.html?token={token or ''}" # El token viene del request
         
         return {
             "message": "Firma realizada exitosamente",
@@ -950,14 +950,19 @@ async def send_email_accompaniment(
     if evaluacion.observador and evaluacion.observador.email:
         recipients.append(evaluacion.observador.email)
     
-    # Otros destinatarios ocultos (CCO) desde la configuración
-    extras = db.query(EmailRecipient).filter(EmailRecipient.activo == True).all()
-    bcc_list = [extra.email for extra in extras]
+    # Otros destinatarios con copia (CC) filtrados por colegio
+    from sqlalchemy import or_
+    docente_colegio_id = evaluacion.docente.colegio_id
+    extras = db.query(EmailRecipient).filter(
+        EmailRecipient.activo == True,
+        or_(EmailRecipient.colegio_id == docente_colegio_id, EmailRecipient.colegio_id == None)
+    ).all()
+    cc_list = [extra.email for extra in extras]
     
-    # Eliminar duplicados en recipients directos
+    # Eliminar duplicados en recipients directos y CC
     recipients = list(set(recipients))
     
-    if not recipients and not bcc_list:
+    if not recipients and not cc_list:
         raise HTTPException(status_code=400, detail="No hay destinatarios válidos para enviar el correo")
     
     # 2. Enviar correo
@@ -974,7 +979,7 @@ async def send_email_accompaniment(
     Verificación: {evaluacion.codigo_firma or 'N/A'}
     
     Puede visualizar el acta oficial en línea en el siguiente enlace:
-    {FRONTEND_URL}/ver-acta.html?c={evaluacion.codigo_firma}
+    {BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}
     """
     
     # Versión HTML Profesional
@@ -1029,16 +1034,20 @@ async def send_email_accompaniment(
                         <td class="label">Verificación</td>
                         <td class="value" style="font-family: monospace; font-weight: 700; color: #004080;">{evaluacion.codigo_firma or 'N/A'}</td>
                     </tr>
+                    <tr style="background-color: #e2e8f0;">
+                         <td class="label" style="color: #002b5e;">Promedio Liderazgo</td>
+                         <td class="value" style="font-size: 16px; font-weight: 800; color: #002b5e;">{f"{evaluacion.promedio:.2f}" if evaluacion.promedio else "N/A"}</td>
+                    </tr>
                 </table>
-
+                
                 <div class="btn-container">
-                    <a href="{FRONTEND_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn">Visualizar Acta Oficial</a>
+                    <a href="{BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn">Visualizar Acta Oficial</a>
                 </div>
             </div>
             <div class="footer">
                 <p><strong>Sistema de Gestión de Liderazgo</strong></p>
-                <p>Colegio Diego Portales - Red de Acompañamiento</p>
-                <p>© {datetime.now().year} Todos los derechos reservados.</p>
+                <p>Colegio Diego Portales y Macaya - Red de Acompañamiento</p>
+                <p>© {datetime.now().year} - Equipo de Innovación Tecnológica</p>
             </div>
         </div>
     </body>
@@ -1050,7 +1059,7 @@ async def send_email_accompaniment(
         subject=subject,
         body=body_plain,
         body_html=body_html,
-        bcc_emails=bcc_list
+        cc_emails=cc_list
     )
     
     if not success:

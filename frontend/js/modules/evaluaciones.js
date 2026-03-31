@@ -263,6 +263,11 @@ export async function verFormularioSoloLectura(id) {
             }
         });
 
+        // Mostrar/Ocultar indicadores de campos editables en borrador
+        document.querySelectorAll('.editable-marker').forEach(marker => {
+            marker.style.display = esBorrador ? 'inline' : 'none';
+        });
+
         // UI Adjustments
         const badge = document.getElementById('badgeEstado');
         if (badge) {
@@ -357,6 +362,8 @@ export async function initEvaluacionForm() {
             form.reset();
             const elements = form.querySelectorAll('input, select, textarea');
             elements.forEach(el => el.disabled = false);
+            const markers = document.querySelectorAll('.editable-marker');
+            markers.forEach(m => m.style.display = 'none');
         }
         const btnGuardar = document.getElementById('btnGuardarEvaluacion');
         if (btnGuardar) btnGuardar.style.display = 'block';
@@ -1479,19 +1486,25 @@ export async function showEmailResendModal(id) {
         // 1. Obtener detalle de la evaluación (para correos de docente/observador)
         const evaluacion = await api.evaluaciones.getById(id);
         
-        // 2. Obtener destinatarios CCO configurados
+        // 2. Obtener destinatarios configurados y filtrar por colegio (CC)
         const extraRecipients = await api.config.getEmailRecipients();
-        const activeBCC = extraRecipients.filter(r => r.activo);
+        const schoolId = evaluacion.docente?.colegio_id;
         
+        // Filtrar: activos + (mismo colegio o Global)
+        const activeCC = extraRecipients.filter(r => 
+            r.activo && (r.colegio_id === null || r.colegio_id === schoolId)
+        );
+        
+        const configInfo = await api.config.getInfo();
+        const baseUrl = configInfo.BASE_URL || window.location.origin;
+
         mostrarLoading(false);
 
         const docenteEmail = evaluacion.docente?.email || 'Sin correo';
         const observadorEmail = evaluacion.observador?.email || 'Sin correo';
-        const bccList = activeBCC.map(r => `<li>${r.nombre} (${r.email})</li>`).join('') || '<li>Sin destinatarios extra configurados</li>';
+        const ccList = activeCC.map(r => `<li>${r.nombre} (${r.email})</li>`).join('') || '<li>Sin destinatarios extra configurados</li>';
 
-        // Obtener la ruta base actual (ej: /frontend/ o /)
-        const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
-        const publicLink = `${window.location.origin}${currentPath}ver-acta.html?c=${evaluacion.codigo_firma || ''}`;
+        const publicLink = `${baseUrl.replace(/\/$/, '')}/ver-acta.html?c=${evaluacion.codigo_firma || ''}`;
 
         const body = `
             <div style="padding: 15px; background: #fff; border-radius: 12px;">
@@ -1517,20 +1530,16 @@ export async function showEmailResendModal(id) {
                     
                     <details style="margin-top: 5px;">
                         <summary style="cursor: pointer; color: #004080; font-weight: 600; font-size: 0.9rem; user-select: none;">
-                            👁️ Copia Oculta (CCO) - ${activeBCC.length} destinatarios
+                            👥 Con Copia (CC) - ${activeCC.length} destinatarios
                         </summary>
                         <div style="margin-top: 8px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; color: #475569; max-height: 150px; overflow-y: auto;">
-                            ${activeBCC.length > 0 
-                                ? activeBCC.map(r => `<div>• ${r.email} <small>(${r.nombre || 'Sin nombre'})</small></div>`).join('') 
-                                : 'No hay destinatarios extra configurados.'}
+                            ${activeCC.length > 0 
+                                ? activeCC.map(r => `<div>• ${r.email} <small>(${r.nombre || 'Sin nombre'})</small></div>`).join('') 
+                                : 'No hay otros destinatarios para este colegio.'}
                         </div>
                     </details>
                 </div>
                 
-                <div style="margin-top: 20px; padding: 12px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #92400e; font-size: 0.9rem;">
-                    <strong>Información:</strong> Se adjuntará el acta de acompañamiento firmada en formato PDF.
-                </div>
-
                 <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
                     <button class="btn btn-secondary" onclick="window.app.closeModal()" style="padding: 10px 20px;">Cancelar</button>
                     <button class="btn btn-primary" onclick="window.app.sendEmailAccompaniment(${id})" style="background: #004080; border: none; padding: 10px 25px; font-weight: 600;">🚀 Enviar Acta</button>

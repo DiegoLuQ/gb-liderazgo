@@ -41,8 +41,8 @@ export async function showModal(type, data = null) {
         case 'docente':
             bodyHtml = `
                 <div class="form-group"><label>Nombre *</label><input type="text" id="modalNombre" value="${data?.nombre || ''}" required></div>
-                <div class="form-group"><label>RUT *</label><input type="text" id="modalRut" value="${data?.rut || ''}" required></div>
-                <div class="form-group"><label>Email</label><input type="email" id="modalEmail" value="${data?.email || ''}"></div>
+                <div class="form-group"><label>RUT * (Formato: 12345678-9)</label><input type="text" id="modalRut" value="${data?.rut || ''}" placeholder="12345678-9" required></div>
+                <div class="form-group"><label>Email *</label><input type="email" id="modalEmail" value="${data?.email || ''}" required></div>
                 <div class="form-group"><label>Colegio *</label><select id="modalColegio" class="form-select" required><option value="">Cargando...</option></select></div>
                 <div class="modal-actions">
                     <button class="btn btn-primary" onclick="window.app.saveDocente(${data?.id || 'null'})">Guardar</button>

@@ -123,7 +123,7 @@ class AsignaturaResponse(AsignaturaBase):
 class DocenteBase(BaseModel):
     nombre: str
     rut: str
-    email: Optional[str] = None
+    email: str
     colegio_id: int
 
 

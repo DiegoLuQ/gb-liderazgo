@@ -159,8 +159,8 @@ export async function loadUsuarios() {
                 <td><span class="badge ${u.activo ? 'badge-success' : 'badge-danger'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td>
                     <div class="actions">
-                        <button class="btn btn-warning btn-sm" onclick="window.app.editUsuario(${u.id})">Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteUsuario(${u.id})">Eliminar</button>
+                        <button class="btn btn-warning btn-sm" onclick="window.app.editUsuario(${u.id})">📝 Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteUsuario(${u.id})">🗑️ Eliminar</button>
                     </div>
                 </td>
             </tr>

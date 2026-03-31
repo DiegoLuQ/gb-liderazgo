@@ -129,6 +129,17 @@ window.addEventListener('page-navigation', async (e) => {
             window.scrollTo(0, 0);
             break;
         case 'config-emails':
+            // Cargar colegios para el dropdown de destinatarios
+            try {
+                const colegios = await api.colegios.getAll();
+                const selectColegio = document.getElementById('newRecipientColegio');
+                if (selectColegio) {
+                    selectColegio.innerHTML = '<option value="">Todos los colegios (Global)</option>' + 
+                        colegios.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+                }
+            } catch (err) {
+                console.error('Error loading schools for config:', err);
+            }
             await loadEmailRecipients();
             break;
     }
@@ -184,12 +195,13 @@ async function loadEmailRecipients() {
             <tr>
                 <td>${r.nombre}</td>
                 <td>${r.email}</td>
+                <td><span class="badge badge-info">${r.colegio_nombre || 'Global'}</span></td>
                 <td><span class="badge ${r.activo ? 'badge-success' : 'badge-secondary'}">${r.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td>
                     <button class="btn btn-danger btn-sm" onclick="window.app.deleteEmailRecipient(${r.id})">Eliminar</button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="4" class="text-center">No hay destinatarios configurados.</td></tr>';
+        `).join('') || '<tr><td colspan="5" class="text-center">No hay destinatarios configurados.</td></tr>';
     } catch (error) {
         console.error('Error loadEmailRecipients:', error);
     }
@@ -199,12 +211,18 @@ async function addEmailRecipient(e) {
     if (e) e.preventDefault();
     const nombre = document.getElementById('newRecipientNombre').value;
     const email = document.getElementById('newRecipientEmail').value;
+    const colegio_id = document.getElementById('newRecipientColegio').value;
     
     if (!nombre || !email) return;
     
     try {
         mostrarLoading(true, 'Agregando destinatario...');
-        await api.config.createEmailRecipient({ nombre, email, activo: true });
+        await api.config.createEmailRecipient({ 
+            nombre, 
+            email, 
+            colegio_id: colegio_id ? parseInt(colegio_id) : null,
+            activo: true 
+        });
         mostrarLoading(false);
         document.getElementById('formAddRecipient').reset();
         await loadEmailRecipients();
