@@ -152,6 +152,12 @@ export function limpiarFiltrosEval() {
 export async function verFormularioSoloLectura(id) {
     try {
         mostrarLoading(true, 'Cargando formulario...');
+        
+        // Navegar a la página de formulario para asegurar una sección aparte
+        if (window.app && window.app.navigateTo) {
+            window.app.navigateTo('nueva-evaluacion');
+        }
+
         await initEvaluacionForm(); // Resetear y cargar bases
         
         const evaluacion = await api.evaluaciones.getById(id);
@@ -774,9 +780,31 @@ export async function guardarEvaluacion(event) {
     try {
         mostrarLoading(true, 'Guardando acompañamiento...');
         const evaluacion = await api.evaluaciones.create(data);
-        _allEvaluaciones = null; // Clear cache to include new item in list
+        _allEvaluaciones = null; // Limpiar caché
         mostrarLoading(false);
-        mostrarResumen(evaluacion);
+        
+        // Mostrar modal de éxito personalizado
+        import('./ui.js').then(ui => {
+            const body = `
+                <div class="text-center" style="padding: 20px;">
+                    <div style="font-size: 3.5rem; margin-bottom: 20px;">✅</div>
+                    <h3 style="color: #004080; margin-bottom: 10px; font-weight: 700;">¡Guardado Exitosamente!</h3>
+                    <p style="color: #64748b; margin-bottom: 25px; font-size: 1.1rem;">El acompañamiento ha sido registrado correctamente en el sistema.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 300px; margin: 0 auto;">
+                        <button class="btn btn-primary" onclick="window.app.closeModal(); window.app.navigateTo('evaluaciones');" 
+                                style="background: #004080; padding: 12px; font-weight: 600; border-radius: 8px;">
+                            📁 Ir a Mis Acompañamientos
+                        </button>
+                        <button class="btn btn-secondary" onclick="window.app.closeModal(); window.app.verDetalle(${evaluacion.id});"
+                                style="padding: 10px; font-weight: 500; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">
+                            Ver Detalles / Resumen
+                        </button>
+                    </div>
+                </div>
+            `;
+            ui.showGenericModal('Operación Exitosa', body);
+        });
     } catch (error) {
         mostrarLoading(false);
         showAlert('Error', error.message, 'error');
@@ -787,12 +815,145 @@ export async function verDetalle(id) {
     try {
         mostrarLoading(true, 'Cargando detalle...');
         const evaluacion = await api.evaluaciones.getById(id);
-        setState('currentEvalId', id); // Store current ID in state
+        setState('currentEvalId', id); // Guardar ID actual
         mostrarLoading(false);
+        
+        // Navegar a la página de resumen
+        if (window.app && window.app.navigateTo) {
+            window.app.navigateTo('resumen-evaluacion');
+        }
+        
         mostrarResumen(evaluacion);
     } catch (error) {
         mostrarLoading(false);
         showAlert('Error', error.message, 'error');
+    }
+}
+
+export async function resumeEditingDraft(id) {
+    try {
+        mostrarLoading(true, 'Cargando borrador...');
+        const evaluacion = await api.evaluaciones.getById(id);
+        
+        // 1. Inicializar formulario (esto resetea y carga combos básicos)
+        await initEvaluacionForm();
+        
+        // 2. Navegar a la página de formulario
+        if (window.app && window.app.navigateTo) {
+            window.app.navigateTo('nueva-evaluacion');
+        }
+        
+        // 3. Poblar Antecedentes
+        const form = document.getElementById('evaluacionForm');
+        if (!form) throw new Error('No se encontró el formulario');
+        
+        // Colegio
+        if (evaluacion.docente?.colegio_id) {
+            const colegioSelect = document.getElementById('colegioSelect');
+            if (colegioSelect) {
+                colegioSelect.value = evaluacion.docente.colegio_id;
+                // Cargar docentes para ese colegio y esperar
+                await loadDocentesByColegio(evaluacion.docente.colegio_id);
+            }
+        }
+        
+        // Docente
+        if (evaluacion.docente_id) {
+            const docenteSelect = document.getElementById('docenteSelect');
+            if (docenteSelect) docenteSelect.value = evaluacion.docente_id;
+        }
+        
+        // Nivel y Curso
+        if (evaluacion.curso?.nivel_id) {
+            const nivelSelect = document.getElementById('nivelSelect');
+            if (nivelSelect) {
+                nivelSelect.value = evaluacion.curso.nivel_id;
+                await loadCursosByNivel(evaluacion.curso.nivel_id);
+            }
+        }
+        if (evaluacion.curso_id) {
+            const cursoSelect = document.getElementById('cursoSelect');
+            if (cursoSelect) cursoSelect.value = evaluacion.curso_id;
+        }
+        
+        // Asignatura
+        if (evaluacion.asignatura_id) {
+            const asignaturaSelect = document.getElementById('asignaturaSelect');
+            if (asignaturaSelect) asignaturaSelect.value = evaluacion.asignatura_id;
+        }
+        
+        // Fecha y Duración
+        if (evaluacion.fecha) {
+            const dateInput = document.getElementById('fechaObservacion');
+            if (dateInput) dateInput.value = evaluacion.fecha.split('T')[0];
+        }
+        if (evaluacion.duracion) {
+            const durInput = document.getElementById('duracion');
+            if (durInput) durInput.value = evaluacion.duracion;
+        }
+        
+        // 4. Poblar Rúbrica (Respuestas)
+        (evaluacion.respuestas || []).forEach(resp => {
+            const radio = form.querySelector(`input[name="ind${resp.subdimension_id}"][value="${resp.valor}"]`);
+            if (radio) {
+                radio.checked = true;
+                // Disparar el evento change para que se actualicen los "hints"
+                radio.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        // 5. Funcionamiento Grupo
+        if (evaluacion.func_grupo) {
+            const radioFunc = form.querySelector(`input[name="funcGrupo"][value="${evaluacion.func_grupo}"]`);
+            if (radioFunc) radioFunc.checked = true;
+        }
+        
+        // 6. Fortalezas y Aspectos
+        const fortalezasText = (evaluacion.fortalezas_aspectos || [])
+            .filter(fa => fa.tipo === 'FORTALEZA')
+            .map(fa => fa.contenido).join('\n');
+        const aspectosText = (evaluacion.fortalezas_aspectos || [])
+            .filter(fa => fa.tipo === 'ASPECTO')
+            .map(fa => fa.contenido).join('\n');
+            
+        const fortInput = document.getElementById('fortalezas');
+        const aspInput = document.getElementById('aspectos');
+        if (fortInput) fortInput.value = fortalezasText;
+        if (aspInput) aspInput.value = aspectosText;
+        
+        // 7. Orientación y Apoyo
+        if (evaluacion.orientacion) {
+            const radioOri = form.querySelector(`input[name="orientacion"][value="${evaluacion.orientacion}"]`);
+            if (radioOri) radioOri.checked = true;
+        }
+        if (evaluacion.nivel_apoyo) {
+            const radioApoyo = form.querySelector(`input[name="nivelApoyo"][value="${evaluacion.nivel_apoyo}"]`);
+            if (radioApoyo) radioApoyo.checked = true;
+        }
+        
+        // Tipo Apoyo (Checkboxes)
+        const tipos = (evaluacion.apoyos || []).map(a => a.apoyo);
+        form.querySelectorAll('.tipoApoyo').forEach(cb => {
+            if (tipos.includes(cb.value)) cb.checked = true;
+        });
+        
+        // Comentarios
+        if (evaluacion.comentarios) {
+            const comInput = document.getElementById('comentarios');
+            if (comInput) comInput.value = evaluacion.comentarios;
+        }
+        
+        // 8. Estado final del form
+        setState('currentEvalId', id); // Marcar que estamos editando
+        calcularPromedios();
+        
+        const titleH1 = document.getElementById('tituloFormulario');
+        if (titleH1) titleH1.textContent = 'Editando Borrador #' + id;
+        
+        mostrarLoading(false);
+    } catch (error) {
+        mostrarLoading(false);
+        showAlert('Error', 'No se pudo cargar el borrador: ' + error.message, 'error');
     }
 }
 
@@ -1518,10 +1679,6 @@ export async function showEmailResendModal(id) {
                     <div style="display: flex; gap: 8px; align-items: baseline;">
                         <span style="color: #64748b; min-width: 80px; font-weight: 600;">De parte:</span>
                         <span style="color: #1e293b;">${evaluacion.observador?.username || 'Administrador'} &lt;${observadorEmail}&gt;</span>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: baseline;">
-                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">CC:</span>
-                        <span style="color: #1e293b;">${observadorEmail}</span>
                     </div>
                     <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
                         <span style="color: #64748b; min-width: 80px; font-weight: 600;">Link Público:</span>

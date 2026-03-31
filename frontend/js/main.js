@@ -16,7 +16,8 @@ import {
     descargarFormularioPDF, prepareSignature, finalizeEvaluation,
     closeModalSignature, cancelSignatureProcess, submitManualSignature,
     sendEmailAccompaniment, showEmailSuccessModal, copyShareLink, sendEmailWithSummary,
-    showEmailResendModal, showEmailResendModalFromHeader, guardarCambiosBorrador
+    showEmailResendModal, showEmailResendModalFromHeader, guardarCambiosBorrador,
+    resumeEditingDraft
 } from './modules/evaluaciones.js';
 import { 
     loadDashboardStats, loadColegiosForDashboardFilter 
@@ -62,6 +63,7 @@ const app = {
     copyShareLink,
     sendEmailWithSummary,
     guardarCambiosBorrador,
+    resumeEditingDraft,
     // Dashboard
     loadDashboardStats, loadColegiosForDashboardFilter,
     // Config

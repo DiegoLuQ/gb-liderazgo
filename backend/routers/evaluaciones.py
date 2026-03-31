@@ -942,13 +942,16 @@ async def send_email_accompaniment(
     # 1. Recopilar destinatarios
     recipients = []
     
-    # Email del docente
+    # Email del docente (Destinatario Principal)
     if evaluacion.docente and evaluacion.docente.email:
         recipients.append(evaluacion.docente.email)
     
-    # Email del observador (el que lo creó)
+    # 2. Recopilar destinatarios con copia (CC)
+    cc_list = []
+    
+    # Email del observador (con copia)
     if evaluacion.observador and evaluacion.observador.email:
-        recipients.append(evaluacion.observador.email)
+        cc_list.append(evaluacion.observador.email)
     
     # Otros destinatarios con copia (CC) filtrados por colegio
     from sqlalchemy import or_
@@ -957,10 +960,11 @@ async def send_email_accompaniment(
         EmailRecipient.activo == True,
         or_(EmailRecipient.colegio_id == docente_colegio_id, EmailRecipient.colegio_id == None)
     ).all()
-    cc_list = [extra.email for extra in extras]
+    cc_list.extend([extra.email for extra in extras])
     
-    # Eliminar duplicados en recipients directos y CC
+    # Eliminar duplicados
     recipients = list(set(recipients))
+    cc_list = list(set(cc_list))
     
     if not recipients and not cc_list:
         raise HTTPException(status_code=400, detail="No hay destinatarios válidos para enviar el correo")
