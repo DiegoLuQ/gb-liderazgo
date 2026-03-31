@@ -194,16 +194,32 @@ export async function importarDocentesExcel(input) {
 
 // FIRMA DIGITAL (TOTP)
 export async function setupTOTP(docenteId) {
-    const d = state.docentes.find(doc => doc.id === docenteId);
-    if (!d) return;
+    if (!docenteId) {
+        showAlert('Error', 'ID de docente no válido.', 'warning');
+        return;
+    }
 
     try {
-        console.log('Setting up TOTP for docente:', docenteId);
         mostrarLoading(true, 'Generando clave de firma...');
+        
+        // 1. Obtener datos del docente (si no están en el estado, los buscamos de la API)
+        let d = state.docentes.find(doc => doc.id === parseInt(docenteId));
+        if (!d) {
+            console.log('Docente no encontrado en estado, cargando de la API...');
+            d = await api.docentes.get(docenteId);
+        }
+
+        if (!d) {
+            throw new Error('No se pudo encontrar la información del docente.');
+        }
+
+        console.log('Setting up TOTP for docente:', d.nombre);
+        
+        // 2. Generar el secreto en el backend
         const res = await api.totp.setup(docenteId);
-        console.log('TOTP Setup response:', res);
         mostrarLoading(false);
 
+        // 3. Llenar el modal con la información
         document.getElementById('totpDocenteNombre').textContent = d.nombre;
         document.getElementById('totpDocenteRut').textContent = `RUT: ${d.rut}`;
         document.getElementById('qrcodeContainer').innerHTML = '';
