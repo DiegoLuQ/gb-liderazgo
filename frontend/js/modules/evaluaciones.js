@@ -1401,28 +1401,16 @@ export async function mostrarResumen(evaluacion) {
             btnResend.style.display = evaluacion.estado === 'CERRADA' ? 'block' : 'none';
         }
 
-        // Si está listo para firma, disparar la generación del QR (sin modal si ya está en la página)
+        // Si está listo para firma, obtener el token y preparar WebSocket
         if (evaluacion.estado === 'LISTO_PARA_FIRMA') {
-            // Un pequeño delay para asegurar que el DOM se actualizó
             setTimeout(() => {
-                const qrContainer = document.getElementById('signatureQRContainer');
-                if (qrContainer && qrContainer.innerHTML === '') {
-                    // Solo generamos el QR si no existe, para no abrir el modal automáticamente al cargar el resumen
-                    // pero si el usuario explícitamente cliqueó en preparar, el modal se abre en prepareSignature
-                    api.evaluaciones.getSignToken(evaluacion.id).then(({token}) => {
-                        const signUrl = `${window.location.origin}/firmar.html?token=${token}`;
-                        // El usuario prefiere solo código manual
-                        /*
-                        new QRCode(qrContainer, { 
-                            text: signUrl, 
-                            width: 180, 
-                            height: 180,
-                            correctLevel: QRCode.CorrectLevel.L
-                        });
-                        */
-                        startSignatureWS(evaluacion.id);
-                    });
-                }
+                api.evaluaciones.getSignToken(evaluacion.id).then(({token}) => {
+                    currentSignToken = token;
+                    currentSignEvalId = evaluacion.id;
+                    startSignatureWS(evaluacion.id);
+                }).catch(err => {
+                    console.error('Error obteniendo token de firma:', err);
+                });
             }, 100);
         }
     }
