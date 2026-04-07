@@ -327,6 +327,7 @@ def dashboard_stats(
         query = query.filter(Evaluacion.usuario_id == current_user.id)
 
     total = query.count()
+    total_cerradas = query.filter(Evaluacion.estado == EvaluacionEstado.CERRADA).count()
 
     prom_query = db.query(func.avg(Evaluacion.promedio))
     if colegio_id:
@@ -344,6 +345,7 @@ def dashboard_stats(
 
     return {
         "total_evaluaciones": total,
+        "total_cerradas": total_cerradas,
         "promedio_general": round(promedio_general, 2),
         "total_docentes_evaluados": total_docentes
     }
@@ -968,6 +970,14 @@ async def send_email_accompaniment(
     
     if not recipients and not cc_list:
         raise HTTPException(status_code=400, detail="No hay destinatarios válidos para enviar el correo")
+
+    # 3. Determinar Branding y Escuela
+    colegio_nombre = evaluacion.docente.colegio.nombre.upper() if evaluacion.docente and evaluacion.docente.colegio else ""
+    school_type = "DP" if "DIEGO PORTALES" in colegio_nombre else "MC" if "MACAYA" in colegio_nombre else None
+    
+    # Colores: Macaya Verde (#064e3b), Diego Portales Azul (#004080)
+    primary_color = "#064e3b" if school_type == "MC" else "#004080"
+    secondary_color = "#065f46" if school_type == "MC" else "#002b5e"
     
     # 2. Enviar correo
     subject = f"Acompañamiento de Liderazgo - {evaluacion.docente.nombre}"
@@ -994,11 +1004,11 @@ async def send_email_accompaniment(
         <style>
             body {{ font-family: 'Inter', sans-serif, Arial; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f7f9; }}
             .container {{ max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e1e8ed; }}
-            .header {{ background: linear-gradient(135deg, #002b5e 0%, #004080 100%); color: #ffffff; padding: 35px 25px; text-align: center; }}
+            .header {{ background: linear-gradient(135deg, {secondary_color} 0%, {primary_color} 100%); color: #ffffff; padding: 35px 25px; text-align: center; }}
             .header h1 {{ margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; text-transform: uppercase; }}
             .header p {{ margin: 8px 0 0; font-size: 14px; opacity: 0.9; font-style: italic; font-weight: 300; }}
             .content {{ padding: 30px 40px; }}
-            .greeting {{ font-size: 18px; font-weight: 600; color: #002b5e; margin-bottom: 20px; }}
+            .greeting {{ font-size: 18px; font-weight: 600; color: {secondary_color}; margin-bottom: 20px; }}
             .data-table {{ width: 100%; border-collapse: separate; border-spacing: 0; margin: 25px 0; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }}
             .data-table td {{ padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }}
             .data-table tr:last-child td {{ border-bottom: none; }}
@@ -1045,7 +1055,7 @@ async def send_email_accompaniment(
                 </table>
                 
                 <div class="btn-container">
-                    <a href="{BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn">Visualizar Acta Oficial</a>
+                    <a href="{BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn" style="background-color: {primary_color}; box-shadow: 0 4px 6px {primary_color}33;">Visualizar Acta Oficial</a>
                 </div>
             </div>
             <div class="footer">
@@ -1063,7 +1073,8 @@ async def send_email_accompaniment(
         subject=subject,
         body=body_plain,
         body_html=body_html,
-        cc_emails=cc_list
+        cc_emails=cc_list,
+        school_type=school_type
     )
     
     if not success:

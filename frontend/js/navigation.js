@@ -10,6 +10,10 @@ export async function loadUserInfo() {
         
         const rolId = parseInt(user.rol_id);
         document.getElementById('userDisplay').textContent = user.username;
+        const userAvatar = document.getElementById('userAvatar');
+        if (userAvatar && user.username) {
+            userAvatar.textContent = user.username.charAt(0).toUpperCase();
+        }
         document.getElementById('roleDisplay').textContent = getRoleName(rolId);
         localStorage.setItem('userRole', rolId);
 

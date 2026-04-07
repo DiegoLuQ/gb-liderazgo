@@ -7,7 +7,7 @@ export async function loadDashboardStats() {
     try {
         // 1. Cargar estadísticas principales
         const stats = await api.evaluaciones.getDashboardStats(colegioId);
-        document.getElementById('statTotal').textContent = stats.total_evaluaciones;
+        document.getElementById('statTotal').textContent = stats.total_cerradas;
         document.getElementById('statPromedio').textContent = stats.promedio_general;
         document.getElementById('statDocentes').textContent = stats.total_docentes_evaluados;
 

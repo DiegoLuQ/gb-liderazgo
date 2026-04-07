@@ -7,12 +7,18 @@ import os
 from datetime import datetime
 from database import get_db, engine
 from auth import get_current_user, require_admin
-from models import Base, EmailRecipient
-
+from models import Base, EmailRecipient, Evaluacion, EvaluacionEstado, Docente, Curso
 from utils.db_utils import generate_sql_dump
 from utils.mailer import send_email_with_attachment
+from utils.email import send_evaluation_email
+from utils.report_templates import generate_weekly_report_html
+
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/config", tags=["config"])
+
+class TestEmailRequest(BaseModel):
+    email: str
 
 @router.get("/info")
 def get_config_info():
@@ -94,3 +100,133 @@ def delete_email_recipient(id: int, db: Session = Depends(get_db), admin_user = 
     db.delete(recipient)
     db.commit()
     return {"message": "Destinatario eliminado"}
+
+@router.post("/test-report-email")
+async def test_report_email(
+    request: TestEmailRequest,
+    db: Session = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    from models import Colegio
+    email = request.email
+    try:
+        # 1. Obtener colegios y conteos
+        colegios = db.query(Colegio).all()
+        data = {
+            "GLOBAL": {
+                "BORRADOR": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.BORRADOR).count(),
+                "CERRADA": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.CERRADA).count(),
+                "LISTO_PARA_FIRMA": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.LISTO_PARA_FIRMA).count(),
+            },
+            "SCHOOLS": {}
+        }
+        data["GLOBAL"]["TOTAL"] = sum(data["GLOBAL"].values())
+
+        for col in colegios:
+            c_borrador = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.BORRADOR,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            c_cerrada = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.CERRADA,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            c_listo = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.LISTO_PARA_FIRMA,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            
+            data["SCHOOLS"][col.nombre] = {
+                "BORRADOR": c_borrador,
+                "CERRADA": c_cerrada,
+                "LISTO_PARA_FIRMA": c_listo,
+                "TOTAL": c_borrador + c_cerrada + c_listo
+            }
+
+        # 2. Últimos borradores
+        latest_drafts_db = db.query(Evaluacion).filter(
+            Evaluacion.estado == EvaluacionEstado.BORRADOR
+        ).order_by(Evaluacion.fecha.desc()).limit(5).all()
+
+        latest_drafts = []
+        for d in latest_drafts_db:
+            latest_drafts.append({
+                "id": d.id,
+                "docente": d.docente.nombre if d.docente else "N/A",
+                "curso": f"{d.curso.nivel.nombre} {d.curso.letra}" if d.curso and d.curso.nivel else "N/A",
+                "fecha": d.fecha.strftime("%d/%m/%Y") if d.fecha else "N/A"
+            })
+
+        # 3. Generar HTML
+        html_content = generate_weekly_report_html(data, latest_drafts)
+
+        # 4. Enviar correo
+        success = send_evaluation_email(
+            to_emails=[email],
+            subject="Resumen Semanal de Acompañamiento Liderazgo",
+            body="Este es un reporte de prueba segmentado por colegio.",
+            body_html=html_content,
+            school_type="MC"
+        )
+
+        return {"message": f"Reporte de prueba enviado exitosamente a {email}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/weekly-stats")
+def get_weekly_stats(
+    db: Session = Depends(get_db)
+):
+    from models import Colegio
+    try:
+        colegios = db.query(Colegio).all()
+        data = {
+            "GLOBAL": {
+                "BORRADOR": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.BORRADOR).count(),
+                "CERRADA": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.CERRADA).count(),
+                "LISTO_PARA_FIRMA": db.query(Evaluacion).filter(Evaluacion.estado == EvaluacionEstado.LISTO_PARA_FIRMA).count(),
+            },
+            "SCHOOLS": {}
+        }
+        data["GLOBAL"]["TOTAL"] = sum(data["GLOBAL"].values())
+
+        for col in colegios:
+            c_borrador = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.BORRADOR,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            c_cerrada = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.CERRADA,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            c_listo = db.query(Evaluacion).join(Evaluacion.docente).filter(
+                Evaluacion.estado == EvaluacionEstado.LISTO_PARA_FIRMA,
+                Evaluacion.docente.has(colegio_id=col.id)
+            ).count()
+            
+            data["SCHOOLS"][col.nombre] = {
+                "BORRADOR": c_borrador,
+                "CERRADA": c_cerrada,
+                "LISTO_PARA_FIRMA": c_listo,
+                "TOTAL": c_borrador + c_cerrada + c_listo
+            }
+
+        latest_drafts_db = db.query(Evaluacion).filter(
+            Evaluacion.estado == EvaluacionEstado.BORRADOR
+        ).order_by(Evaluacion.fecha.desc()).limit(5).all()
+
+        latest_drafts = []
+        for d in latest_drafts_db:
+            latest_drafts.append({
+                "id": d.id,
+                "docente": d.docente.nombre if d.docente else "N/A",
+                "curso": f"{d.curso.nivel.nombre} {d.curso.letra}" if d.curso and d.curso.nivel else "N/A",
+                "fecha": d.fecha.strftime("%d/%m/%Y") if d.fecha else "N/A"
+            })
+
+        return {
+            "data": data,
+            "latest_drafts": latest_drafts
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")

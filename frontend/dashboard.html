@@ -75,20 +75,28 @@
                 </a>
                 <div style="padding: 5px 15px; display: flex; flex-direction: column; gap: 5px;">
                     <button class="btn-logout" onclick="respaldarManual()" style="font-size: 0.8em; text-align: left; padding: 8px;">
-                        <span class="icon">💾</span> Respaldo SQL
+                        <span class="icon">💾</span> <span class="nav-text">Respaldo SQL</span>
                     </button>
                     <button class="btn-logout" onclick="enviarRespaldoCorreo()" style="font-size: 0.8em; text-align: left; padding: 8px;">
-                        <span class="icon">📧</span> Respaldo Email
+                        <span class="icon">📧</span> <span class="nav-text">Respaldo Email</span>
                     </button>
                 </div>
             </div>
         </nav>
         <div class="sidebar-footer">
             <div class="user-info">
-                <span id="userDisplay">Usuario</span>
-                <span id="roleDisplay" class="role-badge">Rol</span>
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-details">
+                    <span id="userDisplay">Usuario</span>
+                    <span id="roleDisplay" class="role-badge">Rol</span>
+                </div>
             </div>
-            <button id="btnLogout" class="btn btn-logout">Cerrar Sesión</button>
+            <div class="sidebar-footer-actions">
+                <button id="btnLogout" class="btn-logout">
+                    <span class="icon">🚪</span> <span class="nav-text">Cerrar</span>
+                </button>
+                <span class="version-tag">V1.00.05</span>
+            </div>
         </div>
     </div>
 

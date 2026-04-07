@@ -93,7 +93,6 @@ export async function loadModularPages() {
     const pages = [
         'page-inicio.html',
         'page-evaluaciones.html',
-        'page-resumen.html',
         'page-nueva-evaluacion.html',
         'page-colegios.html',
         'page-docentes.html',

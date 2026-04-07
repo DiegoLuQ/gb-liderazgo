@@ -253,6 +253,8 @@ export const api = {
         },
         getEmailRecipients() { return api.get('/config/email-recipients'); },
         createEmailRecipient(data) { return api.post('/config/email-recipients', data); },
-        deleteEmailRecipient(id) { return api.delete(`/config/email-recipients/${id}`); }
+        deleteEmailRecipient(id) { return api.delete(`/config/email-recipients/${id}`); },
+        getWeeklyStats() { return api.get('/config/weekly-stats'); },
+        testReportEmail(email) { return api.post('/config/test-report-email', { email }); }
     }
 };

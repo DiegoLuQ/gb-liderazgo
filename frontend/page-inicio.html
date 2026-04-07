@@ -1,81 +1,93 @@
-        <!-- Página Inicio -->
-        <div id="pageInicio" class="page active">
-            <div class="page-header">
-                <h1>Dashboard</h1>
-                <div class="header-filters">
-                    <select id="filterColegioDashboard" class="form-select" onchange="loadDashboardStats()">
-                        <option value="all">Todos los Colegios</option>
-                    </select>
-                </div>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statTotal">0</span>
-                        <span class="stat-label">Total Acompañamientos</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">📈</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statPromedio">0</span>
-                        <span class="stat-label">Promedio General</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">👨‍🏫</div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="statDocentes">0</span>
-                        <span class="stat-label">Docentes Observados</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="quick-actions">
-                <h3>Acciones Rápidas</h3>
-                <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">
-                        ➕ Nuevo Acompañamiento
-                    </button>
-                    <button class="btn btn-secondary" onclick="exportExcel()">
-                        📊 Exportar Excel
-                    </button>
-                    <button class="btn btn-secondary" onclick="navigateTo('evaluaciones')">
-                        📋 Ver Acompañamientos
-                    </button>
-                </div>
-            </div>
-
-            <!-- Nueva sección de Borradores -->
-            <div class="dashboard-section" style="margin-top: 30px;">
-                <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color: #003366;"><i class="fas fa-edit"></i> Borradores Pendientes</h3>
-                    <span class="badge" id="badgeBorradoresCount" style="background: #f1c40f; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85em; display: none;">0 Pendientes</span>
-                </div>
-                
-                <div class="card" style="background: #fff; padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-                    <div class="table-responsive">
-                        <table class="table" style="width: 100%; border-collapse: collapse; margin-top: 0;">
-                            <thead>
-                                <tr style="background: #f8fafc; border-bottom: 2px solid #edf2f7;">
-                                    <th style="padding: 15px; text-align: left; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">Docente / Colegio</th>
-                                    <th style="padding: 15px; text-align: left; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">Fecha Pauta</th>
-                                    <th style="padding: 15px; text-align: center; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">Promedio</th>
-                                    <th style="padding: 15px; text-align: right; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBorradoresDashboard">
-                                <!-- Se llena dinámicamente -->
-                                <tr>
-                                    <td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">
-                                        <div class="spinner" style="margin: 0 auto 10px;"></div>
-                                        Cargando borradores...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+<!-- Página Inicio -->
+<div id="pageInicio" class="page active">
+    <div class="page-header">
+        <h1>Liderazgo</h1>
+        <div class="header-filters">
+            <select id="filterColegioDashboard" class="form-select" onchange="loadDashboardStats()">
+                <option value="all">Todos los Colegios</option>
+            </select>
+        </div>
+    </div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+                <span class="stat-value" id="statTotal">0</span>
+                <span class="stat-label">Acompañamientos Cerrados</span>
             </div>
         </div>
+        <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-info">
+                <span class="stat-value" id="statPromedio">0</span>
+                <span class="stat-label">Promedio General</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👨‍🏫</div>
+            <div class="stat-info">
+                <span class="stat-value" id="statDocentes">0</span>
+                <span class="stat-label">Docentes Observados</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h3>Acciones Rápidas</h3>
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="navigateTo('nueva-evaluacion')">
+                ➕ Nuevo Acompañamiento
+            </button>
+            <button class="btn btn-secondary" onclick="exportExcel()">
+                📊 Exportar Excel
+            </button>
+            <button class="btn btn-secondary" onclick="navigateTo('evaluaciones')">
+                📋 Ver Acompañamientos
+            </button>
+        </div>
+    </div>
+
+    <!-- Nueva sección de Borradores -->
+    <div class="dashboard-section" style="margin-top: 30px;">
+        <div class="section-header"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #003366;"><i class="fas fa-edit"></i> Borradores Pendientes</h3>
+            <span class="badge" id="badgeBorradoresCount"
+                style="background: #f1c40f; color: #000; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85em; display: none;">0
+                Pendientes</span>
+        </div>
+
+        <div class="card"
+            style="background: #fff; padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+            <div class="table-responsive">
+                <table class="table" style="width: 100%; border-collapse: collapse; margin-top: 0;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #edf2f7;">
+                            <th
+                                style="padding: 15px; text-align: left; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">
+                                Docente / Colegio</th>
+                            <th
+                                style="padding: 15px; text-align: left; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">
+                                Fecha Pauta</th>
+                            <th
+                                style="padding: 15px; text-align: center; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">
+                                Promedio</th>
+                            <th
+                                style="padding: 15px; text-align: right; color: #64748b; font-weight: 600; font-size: 0.85em; text-transform: uppercase;">
+                                Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBorradoresDashboard">
+                        <!-- Se llena dinámicamente -->
+                        <tr>
+                            <td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">
+                                <div class="spinner" style="margin: 0 auto 10px;"></div>
+                                Cargando borradores...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
