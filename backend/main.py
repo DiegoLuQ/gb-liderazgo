@@ -11,6 +11,56 @@ import contextlib
 
 Base.metadata.create_all(bind=engine)
 
+
+# ============================================================
+# Auto-Migración: Tokens UUID para Actas Seguras
+# Se ejecuta al arrancar el servidor (seguro para re-ejecuciones)
+# ============================================================
+def auto_migrate_tokens():
+    """Agrega columnas token_full y token_pedagogico si no existen,
+    y genera UUIDs para evaluaciones que no los tengan."""
+    import uuid
+    from sqlalchemy import text, inspect
+    from models import Evaluacion
+    
+    try:
+        inspector = inspect(engine)
+        columns = [col['name'] for col in inspector.get_columns('eval_evaluaciones')]
+        
+        if 'token_full' not in columns or 'token_pedagogico' not in columns:
+            print("[MIGRACIÓN] Agregando columnas de tokens UUID...")
+            with engine.connect() as conn:
+                if 'token_full' not in columns:
+                    conn.execute(text("ALTER TABLE eval_evaluaciones ADD COLUMN token_full VARCHAR(50) NULL"))
+                    conn.execute(text("CREATE INDEX idx_token_full ON eval_evaluaciones(token_full)"))
+                if 'token_pedagogico' not in columns:
+                    conn.execute(text("ALTER TABLE eval_evaluaciones ADD COLUMN token_pedagogico VARCHAR(50) NULL"))
+                    conn.execute(text("CREATE INDEX idx_token_pedagogico ON eval_evaluaciones(token_pedagogico)"))
+                conn.commit()
+            print("[MIGRACIÓN] Columnas creadas exitosamente.")
+        
+        # Poblar evaluaciones sin tokens
+        db = SessionLocal()
+        sin_token = db.query(Evaluacion).filter(
+            (Evaluacion.token_full == None) | (Evaluacion.token_pedagogico == None)
+        ).all()
+        
+        if sin_token:
+            print(f"[MIGRACIÓN] Generando UUIDs para {len(sin_token)} evaluaciones...")
+            for ev in sin_token:
+                if not ev.token_full:
+                    ev.token_full = str(uuid.uuid4())
+                if not ev.token_pedagogico:
+                    ev.token_pedagogico = str(uuid.uuid4())
+            db.commit()
+            print("[MIGRACIÓN] UUIDs generados exitosamente.")
+        
+        db.close()
+    except Exception as e:
+        print(f"[MIGRACIÓN] Advertencia (no crítica): {e}")
+
+auto_migrate_tokens()
+
 # Configuración del Programador de Tareas (Backups)
 def scheduled_backup():
     print(f"Ejecutando respaldo programado: {datetime.now()}")

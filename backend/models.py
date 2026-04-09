@@ -168,6 +168,8 @@ class Evaluacion(Base):
     estado = Column(Enum(EvaluacionEstado), default=EvaluacionEstado.BORRADOR, nullable=False)
     fecha_firma_docente = Column(DateTime(timezone=True), nullable=True)
     codigo_firma = Column(String(20), nullable=True)
+    token_full = Column(String(50), nullable=True, index=True)
+    token_pedagogico = Column(String(50), nullable=True, index=True)
     fecha_guardado = Column(DateTime(timezone=True), server_default=func.now())
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id], back_populates="evaluaciones")

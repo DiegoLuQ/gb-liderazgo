@@ -97,3 +97,14 @@ coverage.xml
 # ==========================================
 *.sqlite3
 *.db
+
+# ==========================================
+# Archivos temporales del proyecto
+# ==========================================
+backend/debug_*.py
+backend/debug_*.json
+backend/migrate_*.py
+backend/check_db.py
+backend/verify_model.py
+backend/run_migration.py
+backend/venv/

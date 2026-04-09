@@ -519,13 +519,14 @@ export async function loadDimensionesRubric() {
                         </div>
                         <div class="indicador-selection-wrapper">
                             <div class="indicador-options">
+                                <label class="radio-opt n-a-opt" data-value="0"><input type="radio" name="ind${sub.id}" value="0" required><span>N/A</span></label>
                                 <label class="radio-opt" data-value="1"><input type="radio" name="ind${sub.id}" value="1" required><span>1</span></label>
                                 <label class="radio-opt" data-value="2"><input type="radio" name="ind${sub.id}" value="2" required><span>2</span></label>
                                 <label class="radio-opt" data-value="3"><input type="radio" name="ind${sub.id}" value="3" required><span>3</span></label>
                                 <label class="radio-opt" data-value="4"><input type="radio" name="ind${sub.id}" value="4" required><span>4</span></label>
                                 <label class="radio-opt" data-value="5"><input type="radio" name="ind${sub.id}" value="5" required><span>5</span></label>
                             </div>
-                            <div class="indicador-hint" id="hint-ind${sub.id}">Seleccione puntaje</div>
+                            <div class="indicador-hint" id="hint-ind${sub.id}">Seleccione puntaje o N/A</div>
                         </div>
                     </div>
                 `;
@@ -546,6 +547,7 @@ export async function loadDimensionesRubric() {
                 const hintEl = document.getElementById(`hint-${name}`);
                 if (hintEl) {
                     const texts = {
+                        '0': 'N/A - No Aplica',
                         '1': '1 - Bajo',
                         '2': '2 - En Desarrollo',
                         '3': '3 - Adecuado',
@@ -579,10 +581,12 @@ export function calcularPromedios() {
             const selected = document.querySelector(`input[name="ind${sub.id}"]:checked`);
             if (selected) {
                 const val = parseInt(selected.value);
-                dimSuma += val;
-                dimCount++;
-                totalSuma += val;
-                totalCount++;
+                if (val > 0) {
+                    dimSuma += val;
+                    dimCount++;
+                    totalSuma += val;
+                    totalCount++;
+                }
             }
         });
 
@@ -591,13 +595,13 @@ export function calcularPromedios() {
         
         const promedioEl = document.getElementById(`promedioDim${dimNum}`);
         if (promedioEl) {
-            promedioEl.textContent = dimPromedio !== null ? dimPromedio.toFixed(2) : '0.00';
+            promedioEl.textContent = dimPromedio !== null ? dimPromedio.toFixed(2) : 'N/A';
         }
     });
 
     const promedioTotal = totalCount > 0 ? (totalSuma / totalCount) : null;
     const display = document.getElementById('promedioDisplay');
-    if (display) display.textContent = promedioTotal !== null ? promedioTotal.toFixed(2) : '_____';
+    if (display) display.textContent = promedioTotal !== null ? promedioTotal.toFixed(2) : 'N/A';
 
     const interpretacionEl = document.getElementById('interpretacionText');
     if (interpretacionEl) {
@@ -1179,21 +1183,27 @@ export async function mostrarResumen(evaluacion) {
     ];
     const dimsHtml = dims
         .filter(d => evaluacion[d.key] != null)
-        .map(d => `<tr><td><strong>${d.label}:</strong></td><td><span class="badge ${getBadgeClass(evaluacion[d.key])}">${Number(evaluacion[d.key]).toFixed(2)}</span></td></tr>`)
+        .map(d => {
+            const val = evaluacion[d.key];
+            const isNA = val === null || val === 0;
+            const displayVal = isNA ? "N/A" : Number(val).toFixed(2);
+            return `<tr><td><strong>${d.label}:</strong></td><td><span class="badge ${isNA ? 'badge-secondary' : getBadgeClass(val)}">${displayVal}</span></td></tr>`;
+        })
         .join('');
 
     const fortalezas = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo?.toLowerCase() === 'fortaleza').map(f => f.contenido).join('; ') || '-';
     const aspectos = (evaluacion.fortalezas_aspectos || []).filter(f => f.tipo?.toLowerCase() === 'aspecto').map(f => f.contenido).join('; ') || '-';
 
     const dimsCards = dims
-        .filter(d => evaluacion[d.key] != null)
         .map(d => {
-            const val = Number(evaluacion[d.key]).toFixed(2);
-            const badgeClass = getBadgeClass(evaluacion[d.key]);
+            const val = evaluacion[d.key];
+            const isNA = val === null || val === 0;
+            const displayVal = isNA ? "N/A" : Number(val).toFixed(2);
+            const badgeClass = isNA ? "badge-secondary" : getBadgeClass(val);
             return `
-            <div style="display:flex; align-items:center; justify-content:space-between; padding: 14px 20px; background: #fff; border-radius: 10px; border-left: 4px solid #004080; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 14px 20px; background: #fff; border-radius: 10px; border-left: 4px solid ${isNA ? '#94a3b8' : '#004080'}; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                 <span style="font-size: 1rem; font-weight: 600; color: #2c3e50;">${d.label}</span>
-                <span class="badge ${badgeClass}" style="font-size: 1.1rem; padding: 8px 20px; border-radius: 8px; font-weight: 700; min-width: 65px; text-align:center;">${val}</span>
+                <span class="badge ${badgeClass}" style="font-size: 1.1rem; padding: 8px 20px; border-radius: 8px; font-weight: 700; min-width: 65px; text-align:center;">${displayVal}</span>
             </div>`;
         }).join('');
 
@@ -1206,7 +1216,7 @@ export async function mostrarResumen(evaluacion) {
             </div>
             <div style="text-align: center; background: rgba(255,255,255,0.12); padding: 18px 30px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px);">
                 <p style="margin: 0 0 8px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; font-weight: 600;">PROMEDIO GLOBAL</p>
-                <span class="badge ${getBadgeClass(evaluacion.promedio)}" style="font-size: 2.4rem; padding: 12px 28px; border-radius: 12px; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.2); display: inline-block;">${evaluacion.promedio ? Number(evaluacion.promedio).toFixed(2) : '-'}</span>
+                <span class="badge ${(evaluacion.promedio === null || evaluacion.promedio === 0) ? 'badge-secondary' : getBadgeClass(evaluacion.promedio)}" style="font-size: 2.4rem; padding: 12px 28px; border-radius: 12px; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,0.2); display: inline-block;">${(evaluacion.promedio === null || evaluacion.promedio === 0) ? 'N/A' : Number(evaluacion.promedio).toFixed(2)}</span>
                 <p style="margin: 10px 0 0; font-size: 0.9rem; opacity: 0.85;">${getInterpretacion(evaluacion.promedio)}</p>
             </div>
         </div>
@@ -1550,21 +1560,33 @@ export function closeResumen() {
     if (el) el.classList.remove('active');
 }
 
-export async function sendEmailAccompaniment(id) {
+export async function sendEmailAccompaniment(id, target = 'all') {
     try {
+        const msg = target === 'docente' ? 'Enviando acta al docente...' : 
+                    target === 'directivo' ? 'Enviando acta a directivos...' : 
+                    'Enviando acta a todos los destinatarios...';
+                    
         // 1. Mostrar loading
-        mostrarLoading(true, 'Enviando correo de notificación...');
+        mostrarLoading(true, msg);
 
-        // 2. Llamar al API (Ahora ya no enviamos PDF, el backend maneja todo)
-        const result = await api.evaluaciones.sendEmail(id);
+        // 2. Llamar al API
+        const result = await api.evaluaciones.sendEmail(id, target);
 
         mostrarLoading(false);
-        showAlert('¡Enviado!', `El acompañamiento ha sido enviado a: ${result.recipients.join(', ')}`, 'success');
+        
+        const successTitle = target === 'docente' ? 'Enviado al Docente' : 
+                            target === 'directivo' ? 'Enviado a Directivos' : 
+                            '¡Enviado!';
+                            
+        showAlert(successTitle, result.message || 'El correo ha sido enviado correctamente.', 'success');
 
-        // 3. Cerrar modal de éxito si estamos en uno
-        const modal = document.getElementById('modalOverlay');
-        if (modal && modal.classList.contains('active')) {
-            import('./ui.js').then(ui => ui.closeModal());
+        // 3. Cerrar modal si el envío fue exitoso y NO estamos haciendo envíos individuales (opcional)
+        // Decisión: No cerrar el modal automáticamente si es un envío individual para dejar que el usuario envíe el otro.
+        if (target === 'all') {
+            const modal = document.getElementById('modalOverlay');
+            if (modal && modal.classList.contains('active')) {
+                import('./ui.js').then(ui => ui.closeModal());
+            }
         }
     } catch (error) {
         console.error('Error al enviar correo:', error);
@@ -1581,9 +1603,9 @@ export function showEmailSuccessModal(evalId, publicLink, code) {
             <p style="color: #555; margin-bottom: 20px;">El sistema ha generado el código: <b style="color: #004080;">${code}</b></p>
             
             <div style="background: #f0f7ff; padding: 20px; border-radius: 12px; border: 1px solid #cce5ff; margin-bottom: 20px; text-align: left;">
-                <p style="margin: 0 0 10px; font-weight: 600; color: #003366;">📤 ¿Desea enviar el acompañamiento al correo?</p>
+                <p style="margin: 0 0 10px; font-weight: 600; color: #003366;">📤 Gestión de Notificación:</p>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button class="btn btn-primary" onclick="window.app.sendEmailWithSummary(${evalId})" style="width: 100%; padding: 12px; font-weight: 700;">📧 Enviar ahora por Correo</button>
+                    <button class="btn btn-primary" onclick="window.app.mostrarEnviarEmailModal(${evalId})" style="width: 100%; padding: 12px; font-weight: 700; background: #004080; border: none; border-radius: 8px;">📧 Abrir Panel de Envío</button>
                     <button class="btn btn-outline-primary" onclick="window.app.copyShareLink('${publicLink}')" style="width: 100%; padding: 12px; border: 1px solid #004080; color: #004080; background: transparent; cursor: pointer; border-radius: 8px; font-weight: 600;">🔗 Copiar Enlace Público</button>
                 </div>
             </div>
@@ -1653,41 +1675,77 @@ export async function showEmailResendModal(id) {
         const observadorEmail = evaluacion.observador?.email || 'Sin correo';
         const ccList = activeCC.map(r => `<li>${r.nombre} (${r.email})</li>`).join('') || '<li>Sin destinatarios extra configurados</li>';
 
-        const publicLink = `${baseUrl.replace(/\/$/, '')}/ver-acta.html?c=${evaluacion.codigo_firma || ''}`;
+        const baseUrlFixed = baseUrl.replace(/\/$/, '');
+        const docenteLink = `${baseUrlFixed}/ver-acta.html?c=${evaluacion.token_pedagogico || evaluacion.codigo_firma || ''}`;
+        const directivoLink = `${baseUrlFixed}/ver-acta.html?c=${evaluacion.token_full || evaluacion.codigo_firma || ''}`;
 
         const body = `
             <div style="padding: 15px; background: #fff; border-radius: 12px;">
-                <div style="margin-bottom: 20px; color: #555; font-size: 0.95rem;">Confirme los detalles del envío:</div>
+                <div style="margin-bottom: 15px; color: #555; font-size: 0.95rem;">Confirme los detalles del envío:</div>
                 
-                <div style="background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
-                    <div style="display: flex; gap: 8px; align-items: baseline;">
-                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">Para:</span>
-                        <span style="color: #1e293b;">${evaluacion.docente?.nombre || 'Docente'} &lt;${docenteEmail}&gt;</span>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: baseline;">
-                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">De parte:</span>
-                        <span style="color: #1e293b;">${evaluacion.observador?.username || 'Administrador'} &lt;${observadorEmail}&gt;</span>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
-                        <span style="color: #64748b; min-width: 80px; font-weight: 600;">Link Público:</span>
-                        <a href="${publicLink}" target="_blank" style="color: #004080; text-decoration: underline; font-size: 0.85rem; word-break: break-all;">${publicLink}</a>
-                    </div>
-                    
-                    <details style="margin-top: 5px;">
-                        <summary style="cursor: pointer; color: #004080; font-weight: 600; font-size: 0.9rem; user-select: none;">
-                            👥 Con Copia (CC) - ${activeCC.length} destinatarios
-                        </summary>
-                        <div style="margin-top: 8px; padding: 10px; background: #fff; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem; color: #475569; max-height: 150px; overflow-y: auto;">
-                            ${activeCC.length > 0 
-                                ? activeCC.map(r => `<div>• ${r.email} <small>(${r.nombre || 'Sin nombre'})</small></div>`).join('') 
-                                : 'No hay otros destinatarios para este colegio.'}
+                <!-- SECCIÓN DOCENTE (Acordeón) -->
+                <details id="detailsDocente" open style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 15px;">
+                    <summary onclick="document.getElementById('detailsDirectiva').removeAttribute('open')" style="padding: 15px; cursor: pointer; color: #475569; font-weight: 700; display: flex; align-items: center; justify-content: space-between; user-select: none; background: #f1f5f9;">
+                         <span style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: #059669; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">1</span>
+                            🚀 Versión para el Docente
+                        </span>
+                        <i class="fas fa-chevron-down" style="font-size: 0.8rem;"></i>
+                    </summary>
+                    <div style="padding: 15px; background: #fff; border-top: 1px solid #e2e8f0;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; gap: 8px; align-items: baseline;">
+                                <span style="color: #64748b; min-width: 80px; font-weight: 600;">Docente:</span>
+                                <span style="color: #1e293b;">${evaluacion.docente?.nombre || 'Docente'} &lt;${docenteEmail}&gt;</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 4px;">
+                                <span style="color: #64748b; min-width: 80px; font-weight: 600; font-size: 0.85rem;">Con Copia:</span>
+                                <span style="color: #475569; font-size: 0.85rem;">${observadorEmail} (Observador)</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: baseline; margin-top: 5px; padding-top: 8px; border-top: 1px dashed #cbd5e1;">
+                                <span style="color: #64748b; min-width: 80px; font-weight: 600;">Link:</span>
+                                <a href="${docenteLink}" target="_blank" style="color: #10b981; text-decoration: underline; font-size: 0.85rem; word-break: break-all;">${docenteLink}</a>
+                            </div>
+                            <div style="margin-top: 8px; padding: 10px; background: #ecfdf5; border: 1px solid #d1fae5; border-radius: 8px; font-size: 0.8rem; color: #065f46;">
+                                <i class="fas fa-eye-slash"></i> <b>Restringida:</b> El docente solo verá retroalimentación y acuerdos.
+                            </div>
+                            <button class="btn btn-primary" onclick="window.app.sendEmailAccompaniment(${id}, 'docente')" style="margin-top: 10px; background: #059669; border: none; padding: 10px; font-weight: 700; width: 100%; border-radius: 8px;">🚀 Enviar a Docente</button>
                         </div>
-                    </details>
-                </div>
-                
-                <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="window.app.closeModal()" style="padding: 10px 20px;">Cancelar</button>
-                    <button class="btn btn-primary" onclick="window.app.sendEmailAccompaniment(${id})" style="background: #004080; border: none; padding: 10px 25px; font-weight: 600;">🚀 Enviar Acta</button>
+                    </div>
+                </details>
+
+                <!-- SECCIÓN DIRECTIVA (Acordeón) -->
+                <details id="detailsDirectiva" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                    <summary onclick="document.getElementById('detailsDocente').removeAttribute('open')" style="padding: 15px; cursor: pointer; color: #475569; font-weight: 700; display: flex; align-items: center; justify-content: space-between; user-select: none; background: #f1f5f9;">
+                        <span>📂 Gestión Directiva y Reporte Total</span>
+                        <i class="fas fa-chevron-down" style="font-size: 0.8rem;"></i>
+                    </summary>
+                    <div style="padding: 15px; background: #fff; border-top: 1px solid #e2e8f0;">
+                         <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; gap: 8px; align-items: baseline;">
+                                <span style="color: #64748b; min-width: 80px; font-weight: 600;">Link Total:</span>
+                                <a href="${directivoLink}" target="_blank" style="color: #004080; text-decoration: underline; font-size: 0.85rem; word-break: break-all;">${directivoLink}</a>
+                            </div>
+                            
+                            <div style="margin-top: 5px;">
+                                <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; margin-bottom: 5px;">👥 Destinatarios en Copia:</div>
+                                <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; color: #475569; max-height: 100px; overflow-y: auto;">
+                                    ${activeCC.length > 0 
+                                        ? activeCC.map(r => `<div style="margin-bottom: 4px;">• ${r.email}</div>`).join('') 
+                                        : '<i style="color: #94a3b8;">No hay directivos configurados para este colegio.</i>'}
+                                </div>
+                            </div>
+
+                            <div style="padding: 10px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 8px; font-size: 0.8rem; color: #1e40af;">
+                                <i class="fas fa-info-circle"></i> <b>Completa:</b> Incluye dimensiones, promedios y nivel de liderazgo.
+                            </div>
+                            <button class="btn btn-primary" onclick="window.app.sendEmailAccompaniment(${id}, 'directivo')" style="margin-top: 10px; background: #004080; border: none; padding: 10px; font-weight: 700; width: 100%; border-radius: 8px;">📁 Enviar a Directivos</button>
+                        </div>
+                    </div>
+                </details>
+
+                <div style="margin-top: 25px; text-align: center;">
+                    <button class="btn btn-link" onclick="window.app.closeModal()" style="color: #64748b; text-decoration: underline; cursor: pointer; border: none; background: transparent;">Cerrar sin enviar más</button>
                 </div>
             </div>
         `;

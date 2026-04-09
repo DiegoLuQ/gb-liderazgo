@@ -227,7 +227,7 @@ class EvaluacionCreate(BaseModel):
     fecha: date
     duracion: Optional[str] = None
     func_grupo: str
-    promedio: float
+    promedio: Optional[float] = None
     promedio_dim1: Optional[float] = None
     promedio_dim2: Optional[float] = None
     promedio_dim3: Optional[float] = None
@@ -291,7 +291,7 @@ class EvaluacionResponse(BaseModel):
     fecha: date
     duracion: Optional[str]
     func_grupo: str
-    promedio: float
+    promedio: Optional[float] = None
     promedio_dim1: Optional[float] = None
     promedio_dim2: Optional[float] = None
     promedio_dim3: Optional[float] = None
@@ -307,6 +307,8 @@ class EvaluacionResponse(BaseModel):
     acuerdos_mejora: Optional[str]
     estado: str
     codigo_firma: Optional[str] = None
+    token_full: Optional[str] = None
+    token_pedagogico: Optional[str] = None
     fecha_guardado: Optional[datetime]
     docente: Optional[DocenteResponse] = None
     curso: Optional[CursoResponse] = None
@@ -323,7 +325,7 @@ class EvaluacionResponse(BaseModel):
 class EvaluacionListResponse(BaseModel):
     id: int
     fecha: date
-    promedio: float
+    promedio: Optional[float] = None
     func_grupo: Optional[str] = None
     docente_id: int
     docente_nombre: Optional[str] = None
@@ -334,6 +336,8 @@ class EvaluacionListResponse(BaseModel):
     observador_nombre: Optional[str] = None
     estado: str
     codigo_firma: Optional[str] = None
+    token_full: Optional[str] = None
+    token_pedagogico: Optional[str] = None
     fecha_guardado: Optional[datetime]
 
     class Config:

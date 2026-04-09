@@ -42,7 +42,7 @@ export function capitalize(str) {
 }
 
 export function getInterpretacion(promedio) {
-    if (!promedio) return '-';
+    if (promedio === null || promedio === undefined || promedio === 0) return 'N/A';
     if (promedio >= 4.0) return 'Liderazgo consolidado';
     if (promedio >= 3.0) return 'Liderazgo adecuado';
     if (promedio >= 2.0) return 'Liderazgo en desarrollo';
@@ -50,7 +50,7 @@ export function getInterpretacion(promedio) {
 }
 
 export function getBadgeClass(promedio) {
-    if (!promedio) return 'badge-secondary';
+    if (promedio === null || promedio === undefined || promedio === 0) return 'badge-secondary';
     if (promedio >= 4.5) return 'badge-success-dark';
     if (promedio >= 4) return 'badge-success';
     if (promedio >= 3) return 'badge-primary';
@@ -102,7 +102,8 @@ export async function loadModularPages() {
         'page-plantilla.html',
         'page-usuarios.html',
         'page-respaldo.html',
-        'page-config-emails.html'
+        'page-config-emails.html',
+        'page-resumen-evaluacion.html'
     ];
 
     // Limpiar contenedor (opcional, pero para asegurar que está vacío)

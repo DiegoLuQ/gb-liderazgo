@@ -230,8 +230,8 @@ export const api = {
         getSignToken(id) { return api.get(`/evaluaciones/${id}/sign-token`); },
         publicSign(data) { return api.post('/evaluaciones/public-sign', data); },
         finalize(id) { return api.post(`/evaluaciones/${id}/finalize`); },
-        sendEmail(id) {
-            return api.post(`/evaluaciones/${id}/send-email`, {});
+        sendEmail(id, target = 'all') {
+            return api.post(`/evaluaciones/${id}/send-email?target=${target}`, {});
         }
     },
     totp: {

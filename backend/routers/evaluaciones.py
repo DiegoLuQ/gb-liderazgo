@@ -1,20 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, or_
 import logging
 from typing import List, Optional
-import pandas as pd
-import io
+from jose import jwt, JWTError
+import uuid
 from datetime import datetime, date
-
 from database import get_db
 from models import Evaluacion, EvaluacionRespuesta, EvaluacionApoyo, FortalezaAspecto, Usuario, Curso, Docente, Asignatura, EvaluacionEstado, EmailRecipient
 from schemas import EvaluacionCreate, EvaluacionResponse, EvaluacionListResponse, EvaluacionUpdate
 from auth import get_current_active_user, require_admin_or_auditor, SECRET_KEY, ALGORITHM
 from utils.websocket_manager import manager
 from utils.email import send_evaluation_email
-from jose import jwt, JWTError
 import os
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
@@ -48,6 +46,8 @@ def build_evaluacion_response(evaluacion: Evaluacion) -> dict:
         "acuerdos_mejora": evaluacion.acuerdos_mejora,
         "estado": evaluacion.estado.value if evaluacion.estado else "BORRADOR",
         "codigo_firma": evaluacion.codigo_firma,
+        "token_full": evaluacion.token_full,
+        "token_pedagogico": evaluacion.token_pedagogico,
         "fecha_firma_docente": evaluacion.fecha_firma_docente,
         "fecha_guardado": evaluacion.fecha_guardado,
         "docente": {
@@ -121,14 +121,47 @@ def build_evaluacion_response(evaluacion: Evaluacion) -> dict:
 
 @router.get("/public/ver/{codigo}")
 def get_public_evaluacion(codigo: str, db: Session = Depends(get_db)):
-    evaluacion = db.query(Evaluacion).filter(Evaluacion.codigo_firma == codigo).first()
+    # 1. Buscar evaluación por cualquiera de sus códigos (firma, full o pedagógico)
+    evaluacion = db.query(Evaluacion).filter(
+        or_(
+            Evaluacion.codigo_firma == codigo,
+            Evaluacion.token_full == codigo,
+            Evaluacion.token_pedagogico == codigo
+        )
+    ).first()
+    
     if not evaluacion:
         raise HTTPException(status_code=404, detail="Acompañamiento no encontrado o código inválido")
     
     if evaluacion.estado.value != "CERRADA":
         raise HTTPException(status_code=403, detail="El acompañamiento aún no está finalizado")
+    
+    # 2. Identificar modo de acceso
+    is_pedagogico = (codigo == evaluacion.token_pedagogico)
+    
+    # 3. Construir respuesta base
+    res = build_evaluacion_response(evaluacion)
+    
+    # 4. Scrubbing de Seguridad: Si es acceso pedagógico, eliminamos físicamente los datos numéricos
+    if is_pedagogico:
+        # Campos de promedios globales y por dimensión
+        res["promedio"] = None
+        res["promedio_dim1"] = None
+        res["promedio_dim2"] = None
+        res["promedio_dim3"] = None
+        res["promedio_dim4"] = None
+        res["promedio_dim5"] = None
         
-    return build_evaluacion_response(evaluacion)
+        # Ocultar calores individuales de la rúbrica (evita que se puedan ver en la red)
+        for r in res.get("respuestas", []):
+            r["valor"] = 0 
+            
+        # Ocultar campos cualitativos de nivel (opcional, pero recomendado para consistencia pedagógica)
+        res["func_grupo"] = "Información Restringida"
+        res["orientacion"] = "Información Restringida"
+        res["nivel_apoyo"] = "Información Restringida"
+        
+    return res
 
 
 @router.post("/", response_model=EvaluacionResponse)
@@ -286,7 +319,7 @@ def exportar_excel(
 
         for resp in e.respuestas:
             if 1 <= resp.subdimension_id <= 15:
-                row[f"Ind {resp.subdimension_id}"] = resp.valor
+                row[f"Ind {resp.subdimension_id}"] = resp.valor if resp.valor > 0 else "N/A"
 
         data.append(row)
 
@@ -412,8 +445,9 @@ def get_stats(
             "dimensiones_por_colegio": {}
         }
         
-    total = len(evaluaciones)
-    promedio_global = sum(e.promedio for e in evaluaciones) / total
+    evaluaciones_con_promedio = [e.promedio for e in evaluaciones if e.promedio is not None]
+    total_validos = len(evaluaciones_con_promedio)
+    promedio_global = sum(evaluaciones_con_promedio) / total_validos if total_validos > 0 else 0
     
     dim_sums = [0.0] * 5
     dim_counts = [0] * 5
@@ -858,12 +892,18 @@ async def public_sign(
     totp = pyotp.TOTP(evaluacion.docente.totp_secret)
     if totp.verify(code):
         import secrets
+        import uuid
         # Generar código único de verificación (ej: FA-7B8C29)
         verif_code = f"FA-{secrets.token_hex(3).upper()}"
         
         evaluacion.estado = EvaluacionEstado.CERRADA
         evaluacion.fecha_firma_docente = datetime.now()
         evaluacion.codigo_firma = verif_code
+        
+        # Generar tokens UUID de seguridad
+        evaluacion.token_full = str(uuid.uuid4())
+        evaluacion.token_pedagogico = str(uuid.uuid4())
+        
         db.commit()
         
         # NOTIFICAR POR WEBSOCKET
@@ -934,6 +974,7 @@ def eliminar_evaluacion(
 @router.post("/{eval_id}/send-email")
 async def send_email_accompaniment(
     eval_id: int,
+    target: str = "all",  # "all", "docente", "directivo"
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
@@ -982,8 +1023,14 @@ async def send_email_accompaniment(
     # 2. Enviar correo
     subject = f"Acompañamiento de Liderazgo - {evaluacion.docente.nombre}"
     
+    # Enlaces (Uso de Tokens UUID por seguridad)
+    token_d = evaluacion.token_pedagogico or evaluacion.codigo_firma
+    token_f = evaluacion.token_full or evaluacion.codigo_firma
+    link_docente = f"{BASE_URL}/ver-acta.html?c={token_d}"
+    link_directivo = f"{BASE_URL}/ver-acta.html?c={token_f}"
+    
     # Texto plano para clientes que no soportan HTML
-    body_plain = f"""
+    body_plain_docente = f"""
     Estimado/a {evaluacion.docente.nombre},
     
     Se ha generado un nuevo registro del acompañamiento de liderazgo realizado el {evaluacion.fecha.strftime('%d/%m/%Y') if evaluacion.fecha else 'N/A'}.
@@ -993,7 +1040,20 @@ async def send_email_accompaniment(
     Verificación: {evaluacion.codigo_firma or 'N/A'}
     
     Puede visualizar el acta oficial en línea en el siguiente enlace:
-    {BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}
+    {link_docente}
+    """
+
+    body_plain_directivo = f"""
+    Estimado/a,
+    
+    Se ha generado un nuevo registro del acompañamiento de liderazgo realizado el {evaluacion.fecha.strftime('%d/%m/%Y') if evaluacion.fecha else 'N/A'}.
+    
+    Docente: {evaluacion.docente.nombre}
+    Estado: {evaluacion.estado.value}
+    Verificación: {evaluacion.codigo_firma or 'N/A'}
+    
+    Puede visualizar el acta oficial en línea en el siguiente enlace:
+    {link_directivo}
     """
     
     # Versión HTML Profesional
@@ -1048,14 +1108,10 @@ async def send_email_accompaniment(
                         <td class="label">Verificación</td>
                         <td class="value" style="font-family: monospace; font-weight: 700; color: #004080;">{evaluacion.codigo_firma or 'N/A'}</td>
                     </tr>
-                    <tr style="background-color: #e2e8f0;">
-                         <td class="label" style="color: #002b5e;">Promedio Liderazgo</td>
-                         <td class="value" style="font-size: 16px; font-weight: 800; color: #002b5e;">{f"{evaluacion.promedio:.2f}" if evaluacion.promedio else "N/A"}</td>
-                    </tr>
                 </table>
                 
                 <div class="btn-container">
-                    <a href="{BASE_URL}/ver-acta.html?c={evaluacion.codigo_firma}" class="btn" style="background-color: {primary_color}; box-shadow: 0 4px 6px {primary_color}33;">Visualizar Acta Oficial</a>
+                    <a href="{{{{PUBLIC_LINK}}}}" class="btn" style="background-color: {primary_color}; box-shadow: 0 4px 6px {primary_color}33;">Visualizar Acta Oficial</a>
                 </div>
             </div>
             <div class="footer">
@@ -1068,19 +1124,43 @@ async def send_email_accompaniment(
     </html>
     """
     
-    success = send_evaluation_email(
-        to_emails=recipients,
-        subject=subject,
-        body=body_plain,
-        body_html=body_html,
-        cc_emails=cc_list,
-        school_type=school_type
-    )
+    # 4. Enviar correos por separado - Condicionado por 'target'
     
-    if not success:
-        raise HTTPException(status_code=500, detail="Error al enviar el correo")
+    # --- Email 1: Para el Docente (Copia al Observador) ---
+    if target in ["all", "docente"] and recipients:
+        html_docente = body_html.replace("{{PUBLIC_LINK}}", link_docente)
+        docente_cc = [evaluacion.observador.email] if (evaluacion.observador and evaluacion.observador.email) else []
+        send_evaluation_email(
+            to_emails=recipients,
+            subject=subject,
+            body=body_plain_docente,
+            body_html=html_docente,
+            cc_emails=docente_cc,
+            school_type=school_type
+        )
+    
+    # --- Email 2: Para Directivos y Observador (CC) ---
+    if cc_list:
+        obs_email = evaluacion.observador.email if (evaluacion.observador and evaluacion.observador.email) else None
+        # Filtrar para no enviar al docente aquí
+        directivos_to = [email for email in cc_list if email != obs_email and email not in recipients]
+        directivos_cc = [obs_email] if obs_email else []
         
-    return {"message": "Correo enviado exitosamente", "recipients": recipients}
+        html_directivo = body_html.replace("{{PUBLIC_LINK}}", link_directivo)
+        send_evaluation_email(
+            to_emails=directivos_to,
+            subject=subject + " (Informe Directivo)",
+            body=body_plain_directivo,
+            body_html=html_directivo,
+            cc_emails=directivos_cc,
+            school_type=school_type
+        )
+        
+    return {
+        "message": f"Envío '{target}' procesado", 
+        "docente_enviado": target in ["all", "docente"] and bool(recipients), 
+        "directivos_enviado": target in ["all", "directivo"] and bool(cc_list)
+    }
 
 
 

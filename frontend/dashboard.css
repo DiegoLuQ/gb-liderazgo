@@ -1901,6 +1901,7 @@ body {
 }
 
 /* Color coding for scores when checked */
+.radio-opt[data-value="0"] input:checked + span { background: #94a3b8; border-color: #94a3b8; color: white; }
 .radio-opt[data-value="1"] input:checked + span { background: #ff4d4d; border-color: #ff4d4d; }
 .radio-opt[data-value="2"] input:checked + span { background: #ffa64d; border-color: #ffa64d; }
 .radio-opt[data-value="3"] input:checked + span { background: #ffdb4d; color: #333; border-color: #ffdb4d; }

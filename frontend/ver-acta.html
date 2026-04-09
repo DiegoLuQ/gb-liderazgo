@@ -314,8 +314,8 @@
     </div>
 
     <!-- II. Resultados Cuantitativos -->
-    <div class="section">
-        <h2 class="section-title"><span>III.</span> Resultados de Liderazgo</h2>
+    <div class="section" id="sectionResults">
+        <h2 class="section-title"><span class="section-num">III.</span> Resultados de Liderazgo</h2>
         <table class="results-table">
             <thead>
                 <tr>
@@ -339,8 +339,8 @@
     </div>
 
     <!-- III. Observaciones de la Clase -->
-    <div class="section">
-        <h2 class="section-title"><span>IV.</span> Observaciones de la Clase</h2>
+    <div class="section" id="sectionObservations">
+        <h2 class="section-title"><span class="section-num">IV.</span> Observaciones de la Clase</h2>
         <div class="detail-box">
             <span class="detail-label">Fortalezas Observadas:</span>
             <p id="fortalezasText" class="detail-content">No registradas</p>
@@ -352,8 +352,8 @@
     </div>
 
     <!-- IV. Orientación y Apoyos -->
-    <div class="section">
-        <h2 class="section-title"><span>V.</span> Orientación y Desarrollo</h2>
+    <div class="section" id="sectionOrientation">
+        <h2 class="section-title"><span class="section-num">V.</span> Orientación y Desarrollo</h2>
         <div class="summary-card">
             <div class="card">
                 <h4>Orientación para el Desarrollo</h4>
@@ -372,8 +372,8 @@
     </div>
 
     <!-- V. Retroalimentación Psicología Organizacional -->
-    <div class="section">
-        <h2 class="section-title"><span>VI.</span> Retroalimentación PO</h2>
+    <div class="section" id="sectionFeedback">
+        <h2 class="section-title"><span class="section-num">VI.</span> Retroalimentación PO</h2>
         <div class="info-grid" style="margin-bottom: 20px;">
             <div class="info-item">
                 <label>Fecha de Retroalimentación</label>
@@ -395,8 +395,8 @@
     </div>
 
     <!-- VI. Comentarios Adicionales -->
-    <div class="section" id="comentariosSection" style="display:none;">
-        <h2 class="section-title"><span>VII.</span> Comentarios para el Desarrollo</h2>
+    <div class="section" id="sectionComments" style="display:none;">
+        <h2 class="section-title"><span class="section-num">VII.</span> Comentarios para el Desarrollo</h2>
         <div class="detail-box" style="background: #fffdf0; border-color: #fef08a;">
             <p id="comentarios" class="detail-content">-</p>
         </div>
@@ -449,6 +449,30 @@
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
 
+        // Detectar Modo Docente (restringido) de forma segura
+        // Si e.promedio es null, el servidor ha filtrado los datos por seguridad.
+        const isDocenteMode = (e.promedio === null);
+
+        if (isDocenteMode) {
+            document.getElementById('sectionResults').style.display = 'none';
+            document.getElementById('sectionOrientation').style.display = 'none';
+            
+            // Renumerar secciones visibles
+            const visibleSections = [
+                { id: 'sectionObservations', num: 'III' },
+                { id: 'sectionFeedback', num: 'IV' },
+                { id: 'sectionComments', num: 'V' }
+            ];
+            
+            visibleSections.forEach(s => {
+                const el = document.getElementById(s.id);
+                if (el) {
+                    const span = el.querySelector('.section-num');
+                    if (span) span.textContent = s.num + '.';
+                }
+            });
+        }
+
         // Header e ID
         document.getElementById('evaluacionId').textContent = `Certificado de Integridad #${e.id}`;
         
@@ -485,15 +509,16 @@
 
         table.innerHTML = '';
         dims.forEach(d => {
-            if (d.val !== null && d.val !== undefined) {
-                const row = `<tr><td>${d.label}</td><td class="promedio-cell">${d.val.toFixed(2)}</td></tr>`;
-                table.innerHTML += row;
-            }
+            const isNA = d.val === null || d.val === undefined || d.val === 0;
+            const displayVal = isNA ? "N/A" : d.val.toFixed(2);
+            const row = `<tr><td>${d.label}</td><td class="promedio-cell">${displayVal}</td></tr>`;
+            table.innerHTML += row;
         });
         
+        const globalIsNA = e.promedio === null || e.promedio === undefined || e.promedio === 0;
         table.innerHTML += `<tr style="background:#003366; color:white; font-weight:800;">` +
             `<td style="border-radius: 0 0 0 12px;">PROMEDIO TOTAL LIDERAZGO</td>` +
-            `<td class="promedio-cell" style="color:white; font-size:1.4rem; border-radius: 0 0 12px 0;">${e.promedio?.toFixed(2) || '0.00'}</td></tr>`;
+            `<td class="promedio-cell" style="color:white; font-size:1.4rem; border-radius: 0 0 12px 0;">${globalIsNA ? 'N/A' : e.promedio.toFixed(2)}</td></tr>`;
 
         // III. Observaciones
         const fortalezas = e.fortalezas_aspectos?.filter(f => f.tipo?.toLowerCase() === 'fortaleza').map(f => f.contenido).join('\n\n');
@@ -523,7 +548,7 @@
 
         // VI. Comentarios
         if (e.comentarios) {
-            document.getElementById('comentariosSection').style.display = 'block';
+            document.getElementById('sectionComments').style.display = 'block';
             document.getElementById('comentarios').textContent = e.comentarios;
         }
 
@@ -533,7 +558,7 @@
     }
 
     function interpretarLiderazgo(promedio) {
-        if (!promedio) return '-';
+        if (promedio === null || promedio === undefined || promedio === 0) return 'N/A';
         if (promedio >= 4.0) return 'Liderazgo Consolidado';
         if (promedio >= 3.0) return 'Liderazgo Adecuado';
         if (promedio >= 2.0) return 'Liderazgo en Desarrollo';
