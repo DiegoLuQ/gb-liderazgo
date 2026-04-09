@@ -23,7 +23,7 @@ class TestEmailRequest(BaseModel):
 @router.get("/info")
 def get_config_info():
     return {
-        "BASE_URL": os.getenv("BASE_URL", "http://localhost:8081")
+        "BASE_URL": os.getenv("BASE_URL")
     }
 
 @router.get("/backup/sql")
