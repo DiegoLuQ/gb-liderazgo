@@ -103,6 +103,7 @@ export async function loadModularPages() {
         'page-usuarios.html',
         'page-respaldo.html',
         'page-config-emails.html',
+        'page-sistema.html',
         'page-resumen-evaluacion.html'
     ];
 

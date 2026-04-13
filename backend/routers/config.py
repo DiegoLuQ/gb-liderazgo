@@ -7,11 +7,12 @@ import os
 from datetime import datetime
 from database import get_db, engine
 from auth import get_current_user, require_admin
-from models import Base, EmailRecipient, Evaluacion, EvaluacionEstado, Docente, Curso
+from models import Base, EmailRecipient, Evaluacion, EvaluacionEstado, Docente, Curso, ReportHistory
 from utils.db_utils import generate_sql_dump
 from utils.mailer import send_email_with_attachment
 from utils.email import send_evaluation_email
 from utils.report_templates import generate_weekly_report_html
+from utils.tasks import scheduled_backup, scheduled_weekly_report
 
 from pydantic import BaseModel
 
@@ -75,6 +76,7 @@ def get_email_recipients(db: Session = Depends(get_db), admin_user = Depends(req
             "nombre": r.nombre,
             "colegio_id": r.colegio_id,
             "colegio_nombre": r.colegio.nombre if r.colegio else "Todos los colegios",
+            "recibe_reporte": r.recibe_reporte,
             "activo": r.activo
         })
     return result
@@ -85,6 +87,7 @@ def create_email_recipient(data: dict, db: Session = Depends(get_db), admin_user
         email=data.get("email"),
         nombre=data.get("nombre"),
         colegio_id=data.get("colegio_id") if data.get("colegio_id") else None,
+        recibe_reporte=data.get("recibe_reporte", False),
         activo=data.get("activo", True)
     )
     db.add(new_recipient)
@@ -230,3 +233,59 @@ def get_weekly_stats(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+
+@router.post(
+    "/execute-report", 
+    tags=["Automatización de Tareas"],
+    summary="Ejecutar Reporte de Gestión Manual",
+    description="""
+    Inicia manualmente la generación del reporte de gestión (Mensual/Semanal). 
+    Internamente:
+    1. Consulta destinatarios activos con permiso en la DB.
+    2. Recopila estadísticas globales y por colegio.
+    3. Obtiene los 5 acompañamientos más recientes.
+    4. Genera el HTML y lo envía por correo electrónico.
+    El proceso se ejecuta en segundo plano.
+    """
+)
+async def execute_report(
+    background_tasks: BackgroundTasks,
+    admin_user = Depends(require_admin)
+):
+    """Ejecuta el reporte semanal programado manualmente."""
+    background_tasks.add_task(scheduled_weekly_report)
+    return {"message": "Ejecución de reporte semanal iniciada en segundo plano."}
+
+@router.post(
+    "/execute-backup", 
+    tags=["Automatización de Tareas"],
+    summary="Ejecutar Respaldo de Base de Datos",
+    description="""
+    Inicia manualmente el proceso de respaldo de seguridad. 
+    1. Genera un volcado SQL completo de todas las tablas y datos.
+    2. Comprime la información y la envía como adjunto al correo de administración configurado.
+    Útil para auditorías o migraciones rápidas.
+    """
+)
+async def execute_backup(
+    background_tasks: BackgroundTasks,
+    admin_user = Depends(require_admin)
+):
+    """Ejecuta el respaldo semanal programado manualmente."""
+    background_tasks.add_task(scheduled_backup)
+    return {"message": "Ejecución de respaldo semanal iniciada en segundo plano."}
+
+@router.get(
+    "/report-history", 
+    tags=["Automatización de Tareas"],
+    summary="Ver Historial de Tareas",
+    description="Permite consultar el log de auditoría de todos los reportes y respaldos enviados, incluyendo su estado (ÉXITO/ERROR) y destinatarios."
+)
+def get_report_history(
+    db: Session = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    """Obtiene el historial de envíos de reportes y respaldos."""
+    logs = db.query(ReportHistory).order_by(ReportHistory.fecha_envio.desc()).limit(50).all()
+    return logs
+

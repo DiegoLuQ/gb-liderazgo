@@ -23,8 +23,9 @@ import {
     loadDashboardStats, loadColegiosForDashboardFilter 
 } from './modules/dashboard_stats.js';
 import { 
-    respaldarManual, enviarRespaldoCorreo 
+    respaldarManual, enviarRespaldoCorreo, ejecutarReporteSemanal, ejecutarRespaldoProgramado, loadReportHistory
 } from './modules/config.js';
+
 import {
     loadColegios, saveColegio, deleteColegio, editColegio,
     loadCursos, saveCurso, deleteCurso,
@@ -67,7 +68,8 @@ const app = {
     // Dashboard
     loadDashboardStats, loadColegiosForDashboardFilter,
     // Config
-    respaldarManual, enviarRespaldoCorreo,
+    respaldarManual, enviarRespaldoCorreo, ejecutarReporteSemanal, ejecutarRespaldoProgramado,
+
     // Admin CRUDs
     loadColegios, saveColegio, deleteColegio, editColegio,
     loadCursos, saveCurso, deleteCurso,
@@ -83,7 +85,8 @@ const app = {
     // Configuración de Correos
     loadEmailRecipients,
     addEmailRecipient,
-    deleteEmailRecipient
+    deleteEmailRecipient,
+    loadReportHistory
 };
 
 Object.assign(window, app);
@@ -144,6 +147,9 @@ window.addEventListener('page-navigation', async (e) => {
             }
             await loadEmailRecipients();
             break;
+        case 'sistema':
+            await loadReportHistory();
+            break;
     }
 });
 
@@ -198,6 +204,7 @@ async function loadEmailRecipients() {
                 <td>${r.nombre}</td>
                 <td>${r.email}</td>
                 <td><span class="badge badge-info">${r.colegio_nombre || 'Global'}</span></td>
+                <td><span class="badge ${r.recibe_reporte ? 'badge-primary' : 'badge-secondary'}">${r.recibe_reporte ? 'SÍ' : 'NO'}</span></td>
                 <td><span class="badge ${r.activo ? 'badge-success' : 'badge-secondary'}">${r.activo ? 'Activo' : 'Inactivo'}</span></td>
                 <td>
                     <button class="btn btn-danger btn-sm" onclick="window.app.deleteEmailRecipient(${r.id})">Eliminar</button>
@@ -214,6 +221,7 @@ async function addEmailRecipient(e) {
     const nombre = document.getElementById('newRecipientNombre').value;
     const email = document.getElementById('newRecipientEmail').value;
     const colegio_id = document.getElementById('newRecipientColegio').value;
+    const recibe_reporte = document.getElementById('newRecipientRecibeReporte').checked;
     
     if (!nombre || !email) return;
     
@@ -223,6 +231,7 @@ async function addEmailRecipient(e) {
             nombre, 
             email, 
             colegio_id: colegio_id ? parseInt(colegio_id) : null,
+            recibe_reporte,
             activo: true 
         });
         mostrarLoading(false);

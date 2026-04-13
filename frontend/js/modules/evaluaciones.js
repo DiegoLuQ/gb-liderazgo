@@ -107,8 +107,11 @@ function renderEvaluaciones(data) {
                 <div class="actions" style="display: flex; gap: 8px; justify-content: center;">
                     <button class="btn btn-info btn-sm" onclick="window.app.verDetalle(${e.id})" title="Ver Resumen" style="padding: 5px 10px;">👁️</button>
                     <button class="btn btn-secondary btn-sm" onclick="window.app.verFormularioSoloLectura(${e.id})" title="Ver Formulario Original" style="padding: 5px 10px;">📋</button>
-                    ${parseInt(localStorage.getItem('userRole')) === 1 ? `
-                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteEvaluacion(${e.id})" title="Eliminar Permanentemente" style="padding: 5px 10px;">🗑️</button>
+                    ${parseInt(localStorage.getItem('userRole')) === 1 && e.estado !== 'CERRADA' ? `
+                        <button class="btn btn-danger btn-sm" onclick="window.app.deleteEvaluacion(${e.id})" title="Eliminar" style="padding: 5px 10px;">🗑️</button>
+                    ` : ''}
+                    ${e.estado === 'CERRADA' ? `
+                        <span title="Pauta protegida (firmada)" style="padding: 5px 10px; opacity: 0.5; cursor: not-allowed;">🔒</span>
                     ` : ''}
                 </div>
             </td>

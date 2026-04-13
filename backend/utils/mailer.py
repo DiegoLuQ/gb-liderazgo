@@ -9,14 +9,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-BACKUP_RECIPIENT = os.getenv("BACKUP_RECIPIENT")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+# Usar las mismas variables que utils/email.py para consistencia
+SMTP_USER = os.getenv("SENDER_EMAIL")
+SMTP_PASSWORD = os.getenv("SENDER_PASSWORD")
+BACKUP_RECIPIENT = os.getenv("REPORT_TO_EMAIL")
 
 def send_email_with_attachment(subject, body, filename, content, recipient=None, bcc_recipients=None):
     if not SMTP_USER or not SMTP_PASSWORD:
-        print("Error: SMTP credentials not set in .env")
+        print("Error: SMTP credentials (SENDER_EMAIL/SENDER_PASSWORD) not set in .env")
         return False
 
     to_emails = []
@@ -49,9 +50,8 @@ def send_email_with_attachment(subject, body, filename, content, recipient=None,
         part.add_header('Content-Disposition', f"attachment; filename= {filename}")
         msg.attach(part)
 
-        # Send email
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
+        # Send email using SSL for port 465
+        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
         server.login(SMTP_USER, SMTP_PASSWORD)
         
         all_recipients = to_emails + (bcc_recipients if bcc_recipients else [])

@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 import uuid
 from datetime import datetime, date
 from database import get_db
-from models import Evaluacion, EvaluacionRespuesta, EvaluacionApoyo, FortalezaAspecto, Usuario, Curso, Docente, Asignatura, EvaluacionEstado, EmailRecipient
+from models import Evaluacion, EvaluacionRespuesta, EvaluacionApoyo, FortalezaAspecto, Usuario, Curso, Docente, Asignatura, EvaluacionEstado, EmailRecipient, DeletedEvaluation
 from schemas import EvaluacionCreate, EvaluacionResponse, EvaluacionListResponse, EvaluacionUpdate
 from auth import get_current_active_user, require_admin_or_auditor, SECRET_KEY, ALGORITHM
 from utils.websocket_manager import manager
@@ -430,7 +430,10 @@ def get_stats(
         except ValueError:
             pass
             
+    # Aseguramos que solo se consideren evaluaciones CERRADAS para estadísticas
+    query = query.filter(Evaluacion.estado == EvaluacionEstado.CERRADA)
     evaluaciones = query.all()
+    total = len(evaluaciones)
     
     if not evaluaciones:
         return {
@@ -951,7 +954,11 @@ def eliminar_evaluacion(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_active_user)
 ):
-    query = db.query(Evaluacion)
+    query = db.query(Evaluacion).options(
+        joinedload(Evaluacion.docente).joinedload(Docente.colegio),
+        joinedload(Evaluacion.curso).joinedload(Curso.nivel),
+        joinedload(Evaluacion.asignatura)
+    )
 
     if current_user.rol_id == 3:
         query = query.filter(
@@ -966,9 +973,31 @@ def eliminar_evaluacion(
     if not evaluacion:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
 
+    # Bloquear eliminación de pautas CERRADAS
+    if evaluacion.estado == EvaluacionEstado.CERRADA:
+        raise HTTPException(
+            status_code=400, 
+            detail="No se puede eliminar una pauta cerrada. Las pautas firmadas están protegidas."
+        )
+
+    # Guardar registro de auditoría antes de eliminar
+    registro = DeletedEvaluation(
+        original_eval_id=evaluacion.id,
+        docente_nombre=evaluacion.docente.nombre if evaluacion.docente else "N/A",
+        colegio_nombre=evaluacion.docente.colegio.nombre if evaluacion.docente and evaluacion.docente.colegio else "N/A",
+        curso_nombre=f"{evaluacion.curso.nivel.nombre} {evaluacion.curso.letra}" if evaluacion.curso and evaluacion.curso.nivel else "N/A",
+        asignatura_nombre=evaluacion.asignatura.nombre if evaluacion.asignatura else "N/A",
+        fecha_observacion=evaluacion.fecha,
+        promedio=evaluacion.promedio,
+        estado_al_eliminar=evaluacion.estado.value if evaluacion.estado else "BORRADOR",
+        eliminado_por_id=current_user.id,
+        eliminado_por_username=current_user.username
+    )
+    db.add(registro)
+
     db.delete(evaluacion)
     db.commit()
-    return {"message": "Evaluación eliminada correctamente"}
+    return {"message": "Evaluación eliminada correctamente. Se ha guardado un registro de auditoría."}
 
 
 @router.post("/{eval_id}/send-email")

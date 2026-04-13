@@ -5,6 +5,8 @@
         <p style="color: #666; margin-top: 5px;">Configure las cuentas de correo que recibirán una copia (CC) de cada acompañamiento firmado.</p>
     </div>
 
+    <!-- Acciones del Sistema REMOVED (Moved to page-sistema.html) -->
+
     <div class="card" style="margin-bottom: 30px; max-width: 600px;">
         <div class="card-header">
             <h3>➕ Agregar Nuevo Destinatario</h3>
@@ -28,6 +30,12 @@
                     </select>
                     <small style="color: #666;">Si selecciona un colegio, este destinatario solo recibirá copia de los acompañamientos de ese colegio.</small>
                 </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="newRecipientRecibeReporte" style="width: 20px; height: 20px;">
+                        <span>¿Recibe Reporte Semanal Global?</span>
+                    </label>
+                </div>
                 <div style="margin-top: 15px; text-align: right;">
                     <button type="submit" class="btn btn-primary">Guardar Destinatario</button>
                 </div>
@@ -42,6 +50,7 @@
                     <th>Nombre / Cargo</th>
                     <th>Email</th>
                     <th>Colegio (Filtro)</th>
+                    <th>Reporte Sem.</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>

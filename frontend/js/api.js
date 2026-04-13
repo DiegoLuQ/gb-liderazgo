@@ -255,6 +255,11 @@ export const api = {
         createEmailRecipient(data) { return api.post('/config/email-recipients', data); },
         deleteEmailRecipient(id) { return api.delete(`/config/email-recipients/${id}`); },
         getWeeklyStats() { return api.get('/config/weekly-stats'); },
-        testReportEmail(email) { return api.post('/config/test-report-email', { email }); }
+        testReportEmail(email) { return api.post('/config/test-report-email', { email }); },
+        executeScheduledReport() { return api.post('/config/execute-report'); },
+        executeScheduledBackup() { return api.post('/config/execute-backup'); },
+        getReportHistory() { return api.get('/config/report-history'); }
     }
 };
+
+

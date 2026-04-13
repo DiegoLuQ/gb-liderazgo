@@ -222,7 +222,37 @@ class EmailRecipient(Base):
     email = Column(String(255), nullable=False)
     nombre = Column(String(255), nullable=False)
     colegio_id = Column(Integer, ForeignKey("cat_colegios.id"), nullable=True)
+    recibe_reporte = Column(Boolean, default=False)  # Opción B: Check para reporte semanal
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     colegio = relationship("Colegio")
+
+
+class ReportHistory(Base):
+    __tablename__ = "log_report_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tipo_reporte = Column(String(50))  # 'SEMANAL', 'BACKUP'
+    destinatarios = Column(Text)       # Lista de correos
+    fecha_envio = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String(20))        # 'EXITO', 'ERROR'
+    error_message = Column(Text, nullable=True)
+
+
+class DeletedEvaluation(Base):
+    __tablename__ = "form_eliminados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    original_eval_id = Column(Integer, nullable=False)
+    docente_nombre = Column(String(200))
+    colegio_nombre = Column(String(200))
+    curso_nombre = Column(String(100))
+    asignatura_nombre = Column(String(100))
+    fecha_observacion = Column(Date, nullable=True)
+    promedio = Column(Float, nullable=True)
+    estado_al_eliminar = Column(String(50))
+    eliminado_por_id = Column(Integer, nullable=False)
+    eliminado_por_username = Column(String(100))
+    fecha_eliminacion = Column(DateTime(timezone=True), server_default=func.now())
+    motivo = Column(Text, nullable=True)
