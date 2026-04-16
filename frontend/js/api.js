@@ -229,6 +229,8 @@ export const api = {
         prepareSign(id) { return api.post(`/evaluaciones/${id}/prepare-sign`); },
         getSignToken(id) { return api.get(`/evaluaciones/${id}/sign-token`); },
         publicSign(data) { return api.post('/evaluaciones/public-sign', data); },
+        requestRemoteSign(id) { return api.post(`/evaluaciones/${id}/request-remote-sign`); },
+        publicSignRemote(data) { return api.post('/evaluaciones/public-sign-remote', data); },
         finalize(id) { return api.post(`/evaluaciones/${id}/finalize`); },
         sendEmail(id, target = 'all') {
             return api.post(`/evaluaciones/${id}/send-email?target=${target}`, {});

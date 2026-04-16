@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firma Digital Remota - Acompañamiento</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --primary: #004080;
+            --primary-light: #0059b3;
+            --success: #28a745;
+            --bg: #f8fafc;
+            --text: #334155;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text);
+            box-sizing: border-box;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { color: var(--primary); font-size: 1.6rem; margin-bottom: 25px; line-height: 1.3; }
+        .details-box {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+            display: none;
+        }
+        .detail-row {
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        .detail-row strong {
+            color: #64748b;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn:hover { background: var(--primary-light); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,64,128,0.2); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; color: #64748b; }
+        
+        #errorContainer { display: none; margin-top: 20px; }
+        #successContainer { display: none; }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="card" id="mainCard">
+        <h1>Firma Digital de Acta de Acompañamiento</h1>
+        
+        <!-- Estado de Carga -->
+        <div id="loadingState" style="padding: 20px;">
+            <p>Verificando enlace seguro...</p>
+        </div>
+
+        <!-- Detalles de la evaluación (simplificados) -->
+        <div class="details-box" id="evalDetails">
+            <div style="background: #f8fafc; border-left: 4px solid var(--primary); padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 0.95rem; font-style: italic; color: #475569; line-height: 1.6;">
+                    "El verdadero liderazgo docente no se trata de tener todas las respuestas, sino de inspirar a los estudiantes a hacer las preguntas correctas y guiar al grupo con coherencia y empatía."
+                </p>
+            </div>
+
+            <div class="detail-row">
+                <strong>Docente</strong>
+                <span id="evalDocente" style="font-weight: 600; color: #0f172a;">Cargando...</span>
+            </div>
+            
+            <div class="detail-row">
+                <strong>Curso y Asignatura</strong>
+                <span id="evalModulo" style="color: #475569;">--</span>
+            </div>
+
+            <div class="detail-row" style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <strong>Fecha de Retroalimentación</strong>
+                <span id="evalFechaRetro" style="color: #0f172a; font-weight: 500;">--</span>
+            </div>
+
+            <div class="detail-row" style="margin-top: 15px;">
+                <strong>Síntesis de la Retroalimentación</strong>
+                <div id="evalSintesis" style="margin-top: 5px; color: #334155; font-size: 0.95rem; line-height: 1.5; background: white; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">--</div>
+            </div>
+
+            <div class="detail-row" style="margin-top: 15px; margin-bottom: 0;">
+                <strong>Acuerdos de Mejora</strong>
+                <div id="evalAcuerdos" style="margin-top: 5px; color: #334155; font-size: 0.95rem; line-height: 1.5; background: white; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">--</div>
+            </div>
+        </div>
+
+        <!-- Acción de firma -->
+        <div id="actionContainer" style="display: none;">
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 20px; line-height: 1.5;">
+                Confirmo que he recibido la retroalimentación y tomo conocimiento de los acuerdos y temas tratados en el acompañamiento.
+            </p>
+            <button id="btnSign" class="btn">
+                <span>✍️ Firmar Acompañamiento</span>
+            </button>
+        </div>
+
+        <!-- Mensajes de Error / Éxito -->
+        <div id="errorContainer">
+            <p style="color: #e11d48; font-weight: 600; font-size: 1.1rem; margin-bottom: 10px;">⚠️ Enlace Inválido</p>
+            <p id="errorMsg" style="color: #64748b; font-size: 0.9rem;">El enlace proporcionado no es válido o ya ha expirado.</p>
+        </div>
+
+        <div id="successContainer">
+            <div style="font-size: 3.5rem; margin-bottom: 15px;">✅</div>
+            <h2 style="color: var(--success); margin: 0 0 10px;">¡Firma Exitosa!</h2>
+            <p style="color: #64748b; font-size: 0.95rem; margin-bottom: 20px;">Su acompañamiento ha sido firmado y cerrado correctamente.</p>
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
+                <p style="margin: 0; font-size: 0.85rem; color: #166534; font-weight: bold;">CÓDIGO DE VALIDACIÓN:</p>
+                <p id="codigoVerificacion" style="font-size: 1.4rem; font-weight: bold; color: #15803d; margin: 5px 0 0; letter-spacing: 2px;">--</p>
+            </div>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 25px;">Ya puede cerrar esta pestaña de forma segura.</p>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = window.location.port === '8080' || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') 
+            ? '/api' 
+            : 'http://' + window.location.hostname + ':8001';
+
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        const loadingState = document.getElementById('loadingState');
+        const evalDetails = document.getElementById('evalDetails');
+        const actionContainer = document.getElementById('actionContainer');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMsg = document.getElementById('errorMsg');
+        const successContainer = document.getElementById('successContainer');
+        const btnSign = document.getElementById('btnSign');
+
+        function showError(message) {
+            loadingState.style.display = 'none';
+            evalDetails.style.display = 'none';
+            actionContainer.style.display = 'none';
+            errorContainer.style.display = 'block';
+            errorMsg.textContent = message;
+        }
+
+        if (!token) {
+            showError("No se ha proporcionado un token en el enlace.");
+        } else {
+            // Cargar los detalles del acta usando el token.
+            fetch(`${API_URL}/evaluaciones/public-detail?token=${token}`)
+                .then(res => res.json().then(data => ({ status: res.status, data })))
+                .then(({ status, data }) => {
+                    loadingState.style.display = 'none';
+                    
+                    if (status !== 200) {
+                        return showError(data.detail || "Error al validar el enlace.");
+                    }
+
+                    if (data.estado === 'CERRADA' || data.estado === 'FIRMADA_DOCENTE') {
+                        return showError("Este acompañamiento ya ha sido firmado con anterioridad.");
+                    }
+
+                    // Mostrar datos sin puntajes
+                    document.getElementById('evalDocente').textContent = data.docente_nombre;
+                    document.getElementById('evalModulo').textContent = `${data.asignatura} - ${data.curso}`;
+                    
+                    // Mostrar los datos de retroalimentación
+                    document.getElementById('evalFechaRetro').textContent = data.fecha_retro || 'No especificada';
+                    document.getElementById('evalSintesis').textContent = data.sintesis_retro || 'Sin síntesis registrada';
+                    document.getElementById('evalAcuerdos').textContent = data.acuerdos_mejora || 'Sin acuerdos registrados';
+                    
+                    // Colores por Branding
+                    if (data.colegio_nombre && data.colegio_nombre.toUpperCase().includes('MACAYA')) {
+                        document.documentElement.style.setProperty('--primary', '#064e3b');
+                        document.documentElement.style.setProperty('--primary-light', '#047857');
+                    }
+                    
+                    evalDetails.style.display = 'block';
+                    actionContainer.style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('Error loading details:', err);
+                    showError("Imposible conectar al servidor. Reintente más tarde.");
+                });
+        }
+
+        // Función para firmar
+        btnSign.addEventListener('click', async () => {
+            btnSign.disabled = true;
+            btnSign.innerHTML = '<div class="loading-spinner"></div> Confirmando...';
+            
+            try {
+                const response = await fetch(`${API_URL}/evaluaciones/public-sign-remote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    evalDetails.style.display = 'none';
+                    actionContainer.style.display = 'none';
+                    
+                    document.getElementById('codigoVerificacion').textContent = data.codigo_verificacion;
+                    successContainer.style.display = 'block';
+                    
+                    document.querySelector('h1').style.display = 'none'; // ocultar titulo para enfoque claro
+                } else {
+                    throw new Error(data.detail || 'Error en el servidor al intentar firmar.');
+                }
+            } catch (err) {
+                btnSign.disabled = false;
+                btnSign.innerHTML = '<span>✍️ Firmar Acompañamiento</span>';
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Firma',
+                    text: err.message,
+                    confirmButtonColor: 'var(--primary)'
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -302,6 +302,12 @@ export async function verFormularioSoloLectura(id) {
             }
 
             // Lógica de botones de firma
+            // Siempre mostrar botón de Firma por Correo si está en Borrador o Listo para Firma
+            const btnRemoteSignForm = document.querySelector('#pageNuevaEvaluacion #btnRemoteSignForm');
+            if (btnRemoteSignForm) {
+                btnRemoteSignForm.style.display = 'inline-block';
+            }
+
             if (evaluacion.docente && evaluacion.docente.has_totp) {
                 if (btnFirmarBorrador) {
                     btnFirmarBorrador.style.display = 'inline-block';
@@ -320,6 +326,8 @@ export async function verFormularioSoloLectura(id) {
             if (btnGuardarBorrador) btnGuardarBorrador.style.display = 'none';
             if (btnFirmarBorrador) btnFirmarBorrador.style.display = 'none';
             if (btnAsignarFirma) btnAsignarFirma.style.display = 'none';
+            const btnRemoteSignForm = document.querySelector('#pageNuevaEvaluacion #btnRemoteSignForm');
+            if (btnRemoteSignForm) btnRemoteSignForm.style.display = 'none';
         }
 
         // Habilitar campos editables si es BORRADOR
@@ -379,6 +387,9 @@ export async function initEvaluacionForm() {
         
         const btnPdf = document.getElementById('btnDescargarFormulario');
         if (btnPdf) btnPdf.style.display = 'none';
+
+        const btnRemoteSignForm = document.getElementById('btnRemoteSignForm');
+        if (btnRemoteSignForm) btnRemoteSignForm.style.display = 'none';
 
         const titleH1 = document.getElementById('tituloFormulario');
         if (titleH1) titleH1.textContent = 'Nuevo Acompañamiento';
@@ -1307,7 +1318,8 @@ export async function mostrarResumen(evaluacion) {
                     <div style="display: flex; gap: 15px;">
                         ${evaluacion.estado === 'BORRADOR' ? `
                             <button id="btnGuardarBorrador" type="button" class="btn" style="background: #ef8f11; color: white;" data-eval-id="${evaluacion.id}" onclick="window.app.guardarCambiosBorrador(${evaluacion.id})">💾 Guardar Cambios (Borrador)</button>
-                            <button id="btnPrepareSign" class="btn btn-primary" onclick="window.app.prepareSignature(${evaluacion.id})">✍️ Firma docente</button>
+                            <button id="btnPrepareSign" class="btn btn-primary" onclick="window.app.prepareSignature(${evaluacion.id})">✍️ Firma en pantalla</button>
+                            <button class="btn" style="background: #17a2b8; color: white;" onclick="window.app.requestRemoteSign(${evaluacion.id})">📧 Firma por Correo (Remota)</button>
                         ` : ''}
 
                         ${evaluacion.estado === 'FIRMADA_DOCENTE' ? `
@@ -1315,6 +1327,7 @@ export async function mostrarResumen(evaluacion) {
                         ` : ''}
 
                         ${evaluacion.estado === 'LISTO_PARA_FIRMA' ? `
+                            <button class="btn btn-info btn-sm" style="color: white; padding: 5px 15px;" onclick="window.app.requestRemoteSign(${evaluacion.id})">📧 Re-enviar Enlace Remoto</button>
                             <button class="btn btn-danger btn-sm" onclick="window.app.verDetalle(${evaluacion.id})" style="padding: 5px 15px;">❌ Cancelar Proceso</button>
                         ` : ''}
                     </div>
@@ -1596,6 +1609,95 @@ export async function sendEmailAccompaniment(id, target = 'all') {
         mostrarLoading(false);
         showAlert('Error', 'No se pudo enviar el correo: ' + error.message, 'error');
     }
+}
+
+export async function requestRemoteSign(id) {
+    import('./ui.js').then(ui => {
+        if (!confirm('Se enviará un correo electrónico al docente con un enlace único y temporal (1 hora) para que firme el acta. ¿Desea continuar?')) {
+            return;
+        }
+
+        mostrarLoading(true, 'Generando enlace y enviando correo al docente...');
+        api.evaluaciones.requestRemoteSign(id).then(res => {
+            mostrarLoading(false);
+            ui.showAlert('Firma Remota Solicitada', 'Se ha enviado un correo al docente con éxito. El acompañamiento debe esperar al docente para poder ser cerrado.', 'success');
+            // Recargar la vista actual para reflejar el estado LISTO_PARA_FIRMA si estaba en BORRADOR
+            verDetalle(id);
+        }).catch(err => {
+            mostrarLoading(false);
+            ui.showAlert('Error', err.message || 'No se pudo enviar la solicitud de firma remota', 'error');
+        });
+    });
+}
+
+export async function requestRemoteSignFromForm() {
+    const id = state.currentEvalId;
+    if (!id) {
+        showAlert('Error', 'No hay un acompañamiento seleccionado.', 'warning');
+        return;
+    }
+
+    try {
+        const evaluacion = await api.evaluaciones.getById(id);
+        if (!evaluacion.docente) {
+            showAlert('Error', 'No hay docente asignado para firmar.', 'warning');
+            return;
+        }
+
+        const docenteNombre = evaluacion.docente.nombre || 'Docente';
+        const docenteEmail = evaluacion.docente.email || 'Sin correo asociado';
+
+        const body = `
+            <div style="padding: 15px; background: #fff; border-radius: 12px; text-align: left;">
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                    <span style="font-size: 3rem;">📧</span>
+                </div>
+                <h4 style="color: #002b5e; text-align: center; margin-bottom: 5px;">Confirmar Envío de Firma</h4>
+                <p style="text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 20px;">Se notificará al docente para la firma del acompañamiento #${id}.</p>
+                
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                    <div style="display: flex; margin-bottom: 10px; gap: 8px;">
+                        <span style="color: #64748b; font-weight: 600; min-width: 70px;">Docente:</span>
+                        <span style="color: #1e293b; font-weight: 500;">${docenteNombre}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <span style="color: #64748b; font-weight: 600; min-width: 70px;">Correo:</span>
+                        <span style="color: #004080; font-weight: 500; word-break: break-all;">${docenteEmail}</span>
+                    </div>
+                </div>
+
+                <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 0.85rem; color: #d97706;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 5px;"></i> <b>Importante:</b> El enlace de firma que se enviará será válido por <b>1 hora</b>.
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" style="flex: 1; padding: 12px; border-radius: 8px; font-weight: 600;" onclick="window.app.closeModal()">❌ Cancelar</button>
+                    <button class="btn btn-primary" style="flex: 1; padding: 12px; border-radius: 8px; font-weight: 700; background: #004080; border: none; color: white;" onclick="window.app.executeRemoteSignFromForm(${id})">🚀 Enviar y Cambiar a Listo</button>
+                </div>
+            </div>
+        `;
+        
+        import('./ui.js').then(ui => {
+            ui.showGenericModal('Firma por Correo', body);
+        });
+
+    } catch (e) {
+        showAlert('Error', 'No se pudo cargar la información para la firma.', 'error');
+    }
+}
+
+export function executeRemoteSignFromForm(id) {
+    import('./ui.js').then(ui => ui.closeModal());
+    mostrarLoading(true, 'Generando enlace y enviando correo al docente...');
+    api.evaluaciones.requestRemoteSign(id).then(res => {
+        mostrarLoading(false);
+        showAlert('Firma Remota Solicitada', 'Se ha enviado el enlace de firma al correo del docente con éxito.', 'success');
+        // Usamos verFormularioSoloLectura para recargar la vista pero de forma controlada
+        verFormularioSoloLectura(id);
+    }).catch(err => {
+        mostrarLoading(false);
+        showAlert('Error', err.message || 'No se pudo enviar la solicitud de firma remota', 'error');
+    });
 }
 
 export function showEmailSuccessModal(evalId, publicLink, code) {

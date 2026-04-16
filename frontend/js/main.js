@@ -15,9 +15,9 @@ import {
     limpiarFiltrosEval, loadColegiosForEvalFilter, verFormularioSoloLectura, sortData,
     descargarFormularioPDF, prepareSignature, finalizeEvaluation,
     closeModalSignature, cancelSignatureProcess, submitManualSignature,
-    sendEmailAccompaniment, showEmailSuccessModal, copyShareLink, sendEmailWithSummary,
-    showEmailResendModal, showEmailResendModalFromHeader, guardarCambiosBorrador,
-    resumeEditingDraft
+    sendEmailAccompaniment,
+    showEmailSuccessModal, copyShareLink, sendEmailWithSummary, showEmailResendModal, showEmailResendModalFromHeader,
+    guardarCambiosBorrador, resumeEditingDraft, requestRemoteSign, requestRemoteSignFromForm, executeRemoteSignFromForm
 } from './modules/evaluaciones.js';
 import { 
     loadDashboardStats, loadColegiosForDashboardFilter 
@@ -65,6 +65,9 @@ const app = {
     sendEmailWithSummary,
     guardarCambiosBorrador,
     resumeEditingDraft,
+    requestRemoteSign,
+    requestRemoteSignFromForm,
+    executeRemoteSignFromForm,
     // Dashboard
     loadDashboardStats, loadColegiosForDashboardFilter,
     // Config

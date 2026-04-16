@@ -1,9 +1,12 @@
 import pyotp
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Docente, Usuario
 from auth import get_current_active_user, require_admin_or_auditor
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/totp", tags=["TOTP"])
 
@@ -51,14 +54,16 @@ async def confirm_totp(
     if not secret or not code:
         raise HTTPException(status_code=400, detail="Secret y Code son requeridos")
     
-    # Verificar el código
+    # Verificar el código con una ventana de tolerancia de 1 paso (30s antes/después)
     totp = pyotp.TOTP(secret)
-    if totp.verify(code):
+    if totp.verify(code, valid_window=1):
         # Guardar el secreto en la base de datos de forma permanente
         docente.totp_secret = secret
         db.commit()
+        logger.info(f"Autenticador vinculado exitosamente para docente ID {docente_id}")
         return {"message": "Autenticador vinculado exitosamente"}
     else:
+        logger.warning(f"Fallo en vinculación de TOTP para docente ID {docente_id}: Código inválido")
         raise HTTPException(status_code=400, detail="Código de verificación inválido")
 
 @router.get("/status/{docente_id}")

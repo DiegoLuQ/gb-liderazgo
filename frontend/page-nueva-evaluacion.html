@@ -398,6 +398,10 @@
                         onclick="app.prepareSignature(this.dataset.evalId)">
                         <span class="icon">✍️</span> Firmar Acompañamiento
                     </button>
+                    <button type="button" id="btnRemoteSignForm" class="btn" style="display: none; background: #17a2b8; color: white;"
+                        onclick="app.requestRemoteSignFromForm()">
+                        <span class="icon">📧</span> Firma por Correo
+                    </button>
                     <button type="button" id="btnAsignarFirma" class="btn btn-warning" style="display: none;"
                         onclick="app.setupTOTP(this.dataset.docenteId)">
                         <span class="icon">🔑</span> Asignar Firma Digital

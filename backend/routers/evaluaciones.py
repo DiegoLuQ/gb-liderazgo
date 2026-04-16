@@ -859,7 +859,10 @@ async def get_public_detail(
         "asignatura": evaluacion.asignatura.nombre,
         "fecha": evaluacion.fecha,
         "promedio": float(evaluacion.promedio) if evaluacion.promedio else 0.0,
-        "estado": evaluacion.estado.value
+        "estado": evaluacion.estado.value,
+        "sintesis_retro": evaluacion.sintesis_retro,
+        "acuerdos_mejora": evaluacion.acuerdos_mejora,
+        "fecha_retro": evaluacion.fecha_retro
     }
 
 
@@ -929,6 +932,143 @@ async def public_sign(
     else:
         raise HTTPException(status_code=400, detail="Código TOTP incorrecto")
 
+
+@router.post("/{eval_id}/request-remote-sign")
+async def request_remote_sign(
+    eval_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+        
+    if evaluacion.estado not in [EvaluacionEstado.LISTO_PARA_FIRMA, EvaluacionEstado.BORRADOR]:
+        raise HTTPException(status_code=400, detail="El acompañamiento no está en un estado válido para firma")
+        
+    docente = evaluacion.docente
+    if not docente or not docente.email:
+        raise HTTPException(status_code=400, detail="El docente no tiene un correo electrónico configurado")
+        
+    # Cambiar estado a LISTO_PARA_FIRMA si estaba en BORRADOR
+    if evaluacion.estado == EvaluacionEstado.BORRADOR:
+        evaluacion.estado = EvaluacionEstado.LISTO_PARA_FIRMA
+        db.commit()
+        
+    # Generar token de 1 hora
+    from datetime import timedelta
+    expire = datetime.utcnow() + timedelta(hours=1)
+    payload = {
+        "eval_id": eval_id,
+        "exp": expire,
+        "purpose": "remote_sign"
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    
+    # URL de firma
+    link_firma = f"{BASE_URL}/firmar-remota.html?token={token}"
+    
+    colegio_nombre = docente.colegio.nombre.upper() if docente.colegio else ""
+    school_type = "DP" if "DIEGO PORTALES" in colegio_nombre else "MC" if "MACAYA" in colegio_nombre else None
+    
+    primary_color = "#064e3b" if school_type == "MC" else "#004080"
+    
+    html_body = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: {primary_color}; text-align: center;">Firma de Acompañamiento Digital</h2>
+        <p>Estimado/a <strong>{docente.nombre}</strong>,</p>
+        <p>Se ha habilitado este enlace seguro para que pueda firmar digitalmente su acta de acompañamiento al aula.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0 0 10px 0;"><strong>Folio:</strong> #{evaluacion.id}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Fecha:</strong> {evaluacion.fecha.strftime('%d/%m/%Y') if evaluacion.fecha else 'N/A'}</p>
+            <p style="margin: 0;"><strong>Curso:</strong> {evaluacion.curso.nivel.nombre if evaluacion.curso else 'N/A'} {evaluacion.curso.letra if evaluacion.curso else ''}</p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{link_firma}" style="background-color: {primary_color}; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                FIRMADA DIGITALMENTE ACTA
+            </a>
+        </div>
+        
+        <p style="color: #e11d48; font-size: 0.9em; text-align: center;">
+            ⚠️ <strong>Importante:</strong> Este enlace tiene una validez estricta de 1 hora por motivos de seguridad.
+        </p>
+        <hr style="border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 0.8em; color: #64748b; text-align: center;">
+            Si el botón no funciona, copie y pegue este enlace en su navegador:<br>
+            <a href="{link_firma}" style="color: {primary_color}; word-break: break-all;">{link_firma}</a>
+        </p>
+    </div>
+    """
+    
+    enviado = send_evaluation_email(
+        to_emails=[docente.email],
+        subject=f"Firma Pendiente: Acompañamiento #{evaluacion.id}",
+        body="Por favor firme su acta abriendo el enlace proporcionado.",
+        body_html=html_body,
+        school_type=school_type
+    )
+    
+    if not enviado:
+        raise HTTPException(status_code=500, detail="Error al enviar el correo electrónico")
+        
+    return {"message": "Enlace de firma remota enviado exitosamente."}
+
+@router.post("/public-sign-remote")
+async def public_sign_remote(
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    token = data.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token es requerido")
+        
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        eval_id = payload.get("eval_id")
+        purpose = payload.get("purpose")
+        
+        if purpose != "remote_sign":
+            raise HTTPException(status_code=401, detail="Tipo de token inválido")
+            
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado. Solicite un nuevo enlace.")
+        
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+        
+    if evaluacion.estado != EvaluacionEstado.LISTO_PARA_FIRMA:
+        raise HTTPException(status_code=400, detail="El acompañamiento ya no está disponible para firma")
+        
+    import secrets
+    import uuid
+    # Generar código único de verificación
+    verif_code = f"FA-{secrets.token_hex(3).upper()}"
+    
+    evaluacion.estado = EvaluacionEstado.CERRADA
+    evaluacion.fecha_firma_docente = datetime.now()
+    evaluacion.codigo_firma = verif_code
+    
+    # Generar tokens UUID de seguridad
+    evaluacion.token_full = str(uuid.uuid4())
+    evaluacion.token_pedagogico = str(uuid.uuid4())
+    
+    db.commit()
+    
+    # NOTIFICAR POR WEBSOCKET (si hay alguien mirando el dashboard)
+    await manager.notify_signature(eval_id, {
+        "event": "DOCENTE_FIRMO",
+        "docente_nombre": evaluacion.docente.nombre,
+        "verificacion": verif_code,
+        "timestamp": datetime.now().isoformat()
+    })
+    
+    return {
+        "message": "Firma remota realizada exitosamente",
+        "codigo_verificacion": verif_code
+    }
 
 @router.post("/{eval_id}/finalize")
 async def finalize_evaluation(
