@@ -693,10 +693,39 @@ def get_talent_map(
             talent_map_orientacion["inicial"].append(teacher_info)
         elif "acompañamiento" in o:
             talent_map_orientacion["prioritario"].append(teacher_info)
-            
     return {
         "puntaje": talent_map_puntaje,
         "orientacion": talent_map_orientacion
+    }
+
+
+@router.get("/public-detail")
+async def get_public_detail(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        eval_id = payload.get("eval_id")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
+    if not evaluacion:
+        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
+        
+    return {
+        "id": evaluacion.id,
+        "docente_nombre": evaluacion.docente.nombre,
+        "colegio_nombre": evaluacion.docente.colegio.nombre,
+        "curso": f"{evaluacion.curso.nivel.nombre} {evaluacion.curso.letra}",
+        "asignatura": evaluacion.asignatura.nombre,
+        "fecha": evaluacion.fecha,
+        "promedio": float(evaluacion.promedio) if evaluacion.promedio else 0.0,
+        "estado": evaluacion.estado.value,
+        "sintesis_retro": evaluacion.sintesis_retro,
+        "acuerdos_mejora": evaluacion.acuerdos_mejora,
+        "fecha_retro": evaluacion.fecha_retro
     }
 
 
@@ -834,36 +863,6 @@ async def get_sign_token(
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return {"token": token}
-
-
-@router.get("/public-detail")
-async def get_public_detail(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        eval_id = payload.get("eval_id")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
-    
-    evaluacion = db.query(Evaluacion).filter(Evaluacion.id == eval_id).first()
-    if not evaluacion:
-        raise HTTPException(status_code=404, detail="Acompañamiento no encontrado")
-        
-    return {
-        "id": evaluacion.id,
-        "docente_nombre": evaluacion.docente.nombre,
-        "colegio_nombre": evaluacion.docente.colegio.nombre,
-        "curso": f"{evaluacion.curso.nivel.nombre} {evaluacion.curso.letra}",
-        "asignatura": evaluacion.asignatura.nombre,
-        "fecha": evaluacion.fecha,
-        "promedio": float(evaluacion.promedio) if evaluacion.promedio else 0.0,
-        "estado": evaluacion.estado.value,
-        "sintesis_retro": evaluacion.sintesis_retro,
-        "acuerdos_mejora": evaluacion.acuerdos_mejora,
-        "fecha_retro": evaluacion.fecha_retro
-    }
 
 
 @router.post("/public-sign")
