@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!localStorage.getItem('token')) {
         window.location.href = 'login.html';
         return;
+    } else {
+        // Si está logueado, redirigir al dashboard ya que index.html es la versión antigua
+        window.location.href = 'dashboard.html';
+        return;
     }
 
     const username = localStorage.getItem('username');
